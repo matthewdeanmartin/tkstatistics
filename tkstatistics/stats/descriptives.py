@@ -8,12 +8,12 @@ from __future__ import annotations
 import math
 import statistics
 from collections import Counter
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Union
 
 Numeric = Union[int, float]
 
 
-def describe(data: List[Optional[Numeric]]) -> Dict[str, Any]:
+def describe(data: list[Numeric | None]) -> dict[str, Any]:
     """
     Computes a comprehensive set of descriptive statistics for a sample.
     Handles missing values (None) gracefully.
@@ -78,6 +78,6 @@ def describe(data: List[Optional[Numeric]]) -> Dict[str, Any]:
     }
 
 
-def frequency_table(data: List[Any]) -> Dict[str, int]:
+def frequency_table(data: list[Any]) -> dict[str, int]:
     """Generates a frequency count for categorical data."""
     return dict(Counter(str(x) if x is not None else "Missing" for x in data))

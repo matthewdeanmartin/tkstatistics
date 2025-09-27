@@ -6,14 +6,12 @@ Implementations of nonparametric statistical tests using only stdlib.
 from __future__ import annotations
 
 import math
-from collections import Counter
-from itertools import combinations
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Union
 
 Numeric = Union[int, float]
 
 
-def _rank_data(data: List[Numeric], tie_method: str = "average") -> List[float]:
+def _rank_data(data: list[Numeric], tie_method: str = "average") -> list[float]:
     """Helper to rank data, handling ties."""
     sorted_pairs = sorted(enumerate(data), key=lambda x: x[1])
     ranks = [0.0] * len(data)
@@ -36,7 +34,7 @@ def _rank_data(data: List[Numeric], tie_method: str = "average") -> List[float]:
     return ranks
 
 
-def mann_whitney_u(x: List[Numeric], y: List[Numeric]) -> Dict[str, Any]:
+def mann_whitney_u(x: list[Numeric], y: list[Numeric]) -> dict[str, Any]:
     """
     Performs the Mann-Whitney U test for two independent samples.
 
@@ -82,14 +80,14 @@ def mann_whitney_u(x: List[Numeric], y: List[Numeric]) -> Dict[str, Any]:
     }
 
 
-def wilcoxon_signed_rank(x: List[Numeric], y: List[Numeric]) -> Dict[str, Any]:
+def wilcoxon_signed_rank(x: list[Numeric], y: list[Numeric]) -> dict[str, Any]:
     """
     Performs the Wilcoxon signed-rank test for two related, paired samples.
     """
     if len(x) != len(y):
         return {"error": "Paired samples must have the same length."}
 
-    diffs = [xi - yi for xi, yi in zip(x, y) if xi != yi]
+    diffs = [xi - yi for xi, yi in zip(x, y, strict=False) if xi != yi]
     if not diffs:
         return {
             "test": "Wilcoxon Signed-Rank Test",
@@ -102,8 +100,8 @@ def wilcoxon_signed_rank(x: List[Numeric], y: List[Numeric]) -> Dict[str, Any]:
     abs_diffs = [abs(d) for d in diffs]
     ranks = _rank_data(abs_diffs)
 
-    w_plus = sum(r for d, r in zip(diffs, ranks) if d > 0)
-    w_minus = sum(r for d, r in zip(diffs, ranks) if d < 0)
+    w_plus = sum(r for d, r in zip(diffs, ranks, strict=False) if d > 0)
+    w_minus = sum(r for d, r in zip(diffs, ranks, strict=False) if d < 0)
     w_stat = min(w_plus, w_minus)
     n = len(diffs)
 
@@ -128,7 +126,7 @@ def wilcoxon_signed_rank(x: List[Numeric], y: List[Numeric]) -> Dict[str, Any]:
     }
 
 
-def fisher_exact_2x2(table: List[List[int]]) -> Dict[str, Any]:
+def fisher_exact_2x2(table: list[list[int]]) -> dict[str, Any]:
     """
     Performs Fisher's exact test on a 2x2 contingency table.
     Calculates an exact p-value.

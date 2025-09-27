@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 import random
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any
+from collections.abc import Callable
 
 # Import all stats functions to register them
 from tkstatistics.stats import descriptives, nonparametric, regression
@@ -17,7 +18,7 @@ from .project import Project
 
 # This dispatcher map is crucial for the headless runner.
 # It connects the string name in the JSON spec to the actual Python function.
-ANALYSIS_DISPATCHER: Dict[str, Callable[..., Dict[str, Any]]] = {
+ANALYSIS_DISPATCHER: dict[str, Callable[..., dict[str, Any]]] = {
     # Descriptives
     "describe": descriptives.describe,
     "frequency_table": descriptives.frequency_table,
@@ -33,8 +34,8 @@ ANALYSIS_DISPATCHER: Dict[str, Callable[..., Dict[str, Any]]] = {
 
 
 def create_spec(
-    analysis_name: str, dataset_name: str, inputs: Dict[str, Any], options: Dict[str, Any], app_version: str = "0.1.0"
-) -> Dict[str, Any]:
+    analysis_name: str, dataset_name: str, inputs: dict[str, Any], options: dict[str, Any], app_version: str = "0.1.0"
+) -> dict[str, Any]:
     """
     Creates a JSON-serializable dictionary representing an analysis specification.
 
@@ -61,7 +62,7 @@ def create_spec(
     }
 
 
-def run_spec(spec_path: Path, project_path: Path) -> Dict[str, Any]:
+def run_spec(spec_path: Path, project_path: Path) -> dict[str, Any]:
     """
     Runs an analysis headlessly from a JSON specification file.
 
@@ -75,7 +76,7 @@ def run_spec(spec_path: Path, project_path: Path) -> Dict[str, Any]:
     # 1. Load and validate the spec
     try:
         spec = json.loads(spec_path.read_text(encoding="utf-8"))
-    except (IOError, json.JSONDecodeError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         raise ValueError(f"Failed to load or parse spec file: {e}")
 
     analysis_name = spec.get("analysis")

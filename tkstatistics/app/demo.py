@@ -6,7 +6,7 @@ Generates an in-memory demo dataset and project for instant use on startup.
 from __future__ import annotations
 
 import random
-from typing import Any, Dict
+from typing import Any
 
 from tkstatistics.core.dataset import DataSet, TabularData
 
@@ -33,7 +33,7 @@ def create_demo_dataset() -> TabularData:
     return TabularData.from_list_of_dicts("demo_data", data)
 
 
-def get_demo_spec() -> Dict[str, Any]:
+def get_demo_spec() -> dict[str, Any]:
     """
     Returns a pre-defined JSON spec for a descriptives analysis on the demo data.
     """

@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import math
 import statistics
-from typing import Any, Dict, List
+from typing import Any
 
 from . import linalg_small
 
 
-def stdlib_simple_regression(x: List[float], y: List[float]) -> Dict[str, Any]:
+def stdlib_simple_regression(x: list[float], y: list[float]) -> dict[str, Any]:
     """
     Performs Simple Linear Regression using `statistics.linear_regression`.
 
@@ -44,7 +44,7 @@ def stdlib_simple_regression(x: List[float], y: List[float]) -> Dict[str, Any]:
 
     # Calculate R-squared
     y_pred = [(intercept + slope * xi) for xi in x]
-    residuals = [yi - y_hat for yi, y_hat in zip(y, y_pred)]
+    residuals = [yi - y_hat for yi, y_hat in zip(y, y_pred, strict=False)]
     ss_residual = sum(r**2 for r in residuals)
     y_mean = statistics.mean(y)
     ss_total = sum((yi - y_mean) ** 2 for yi in y)
@@ -78,7 +78,7 @@ def stdlib_simple_regression(x: List[float], y: List[float]) -> Dict[str, Any]:
     }
 
 
-def ols(X: List[List[float]], y: List[float], add_intercept: bool = True) -> Dict[str, Any]:
+def ols(X: list[list[float]], y: list[float], add_intercept: bool = True) -> dict[str, Any]:
     """
     Performs Ordinary Least Squares (OLS) regression.
 
@@ -122,7 +122,7 @@ def ols(X: List[List[float]], y: List[float], add_intercept: bool = True) -> Dic
 
     # Predictions and residuals
     y_pred = linalg_small.matvec_mul(X_design, coeffs)
-    residuals = [y_true - y_hat for y_true, y_hat in zip(y, y_pred)]
+    residuals = [y_true - y_hat for y_true, y_hat in zip(y, y_pred, strict=False)]
 
     # Sums of squares and R-squared
     ss_residual = sum(r**2 for r in residuals)

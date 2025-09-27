@@ -7,16 +7,14 @@ No external dependencies.
 """
 from __future__ import annotations
 
-import math
-from typing import List
 
-Matrix = List[List[float]]
-Vector = List[float]
+Matrix = list[list[float]]
+Vector = list[float]
 
 
 def transpose(matrix: Matrix) -> Matrix:
     """Transposes a matrix (list of lists)."""
-    return [list(row) for row in zip(*matrix)]
+    return [list(row) for row in zip(*matrix, strict=False)]
 
 
 def matmul(A: Matrix, B: Matrix) -> Matrix:
@@ -58,7 +56,7 @@ def invert(matrix: Matrix) -> Matrix:
         raise ValueError("Matrix must be square to be inverted.")
 
     # Augment the matrix with the identity matrix
-    aug = [row + I_row for row, I_row in zip(matrix, identity(n))]
+    aug = [row + I_row for row, I_row in zip(matrix, identity(n), strict=False)]
 
     # Forward elimination (to get upper triangular form)
     for i in range(n):

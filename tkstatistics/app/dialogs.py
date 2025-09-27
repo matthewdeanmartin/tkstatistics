@@ -7,20 +7,19 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import messagebox, ttk
-from typing import Any, Dict, List, Optional
 
 
 class AnalysisDialog(tk.Toplevel):
     """A base class for analysis dialog windows."""
 
-    def __init__(self, master: tk.Misc, title: str, variables: List[str]):
+    def __init__(self, master: tk.Misc, title: str, variables: list[str]):
         super().__init__(master)
         self.title(title)
         self.transient(master)  # Keep dialog on top of the main window
         self.grab_set()  # Modal behavior
 
         self.variables = variables
-        self.result: Optional[List[str]] = None
+        self.result: list[str] | None = None
 
         body = ttk.Frame(self)
         self.create_body(body)  # Implemented by subclasses
@@ -73,7 +72,7 @@ class AnalysisDialog(tk.Toplevel):
 class DescriptivesDialog(AnalysisDialog):
     """Dialog for selecting variables for descriptive statistics."""
 
-    def __init__(self, master, variables: List[str]):
+    def __init__(self, master, variables: list[str]):
         # The title is passed to the parent constructor
         super().__init__(master, title="Descriptive Statistics", variables=variables)
 
@@ -114,7 +113,7 @@ class DescriptivesDialog(AnalysisDialog):
 class SimpleRegressionDialog(AnalysisDialog):
     """Dialog for Simple Linear Regression."""
 
-    def __init__(self, master, variables: List[str]):
+    def __init__(self, master, variables: list[str]):
         self.dependent_var = tk.StringVar()
         self.independent_var = tk.StringVar()
         super().__init__(master, title="Simple Linear Regression", variables=variables)
@@ -154,7 +153,7 @@ class SimpleRegressionDialog(AnalysisDialog):
 class MultipleRegressionDialog(AnalysisDialog):
     """Dialog for Multiple Linear Regression."""
 
-    def __init__(self, master, variables: List[str]):
+    def __init__(self, master, variables: list[str]):
         self.dependent_var = tk.StringVar()
         super().__init__(master, title="Multiple Linear Regression", variables=variables)
 

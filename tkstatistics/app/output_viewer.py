@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict
 
 
 class OutputViewer(ttk.Frame):
@@ -16,7 +15,7 @@ class OutputViewer(ttk.Frame):
     def __init__(self, master: tk.Misc, **kwargs):
         super().__init__(master, **kwargs)
 
-        self.results_map: Dict[str, str] = {}
+        self.results_map: dict[str, str] = {}
 
         # Main container
         paned_window = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -60,8 +59,10 @@ class OutputViewer(ttk.Frame):
 
         selected_item_id = selection[0]
         content = self.results_map.get(selected_item_id, "No result found.")
+        self.update_text(content)
 
-        # Make text widget writable to update it
+    def update_text(self, content: str):
+        """Clears the text area and inserts new content."""
         self.text.config(state=tk.NORMAL)
         self.text.delete("1.0", tk.END)
         self.text.insert("1.0", content)
@@ -84,6 +85,6 @@ class OutputViewer(ttk.Frame):
         self.tree.focus(item_id)
         self.tree.see(item_id)
 
-        # --- THE FIX ---
         # Explicitly call the update method instead of relying on the event.
+        # This fixes the bug where the pane wouldn't update immediately.
         self._on_tree_select()

@@ -5,21 +5,21 @@ Defines the in-memory data model for a tabular dataset.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 # A Row is a dictionary from column names (str) to values (Any)
-Row = Dict[str, Any]
+Row = dict[str, Any]
 # A DataSet is a list of such rows
-DataSet = List[Row]
+DataSet = list[Row]
 
 
 class TabularData:
     """A wrapper for a list of dictionaries representing a dataset."""
 
-    def __init__(self, name: str, data: Optional[DataSet] = None):
+    def __init__(self, name: str, data: DataSet | None = None):
         self.name = name
         self._data: DataSet = data if data is not None else []
-        self._column_names: List[str] = []
+        self._column_names: list[str] = []
         if self._data:
             self._column_names = list(self._data[0].keys())
 
@@ -29,11 +29,11 @@ class TabularData:
         return len(self._data), len(self._column_names)
 
     @property
-    def column_names(self) -> List[str]:
+    def column_names(self) -> list[str]:
         """Returns the list of column names."""
         return self._column_names
 
-    def get_column(self, name: str) -> List[Any]:
+    def get_column(self, name: str) -> list[Any]:
         """Extracts a column by name."""
         if name not in self._column_names:
             raise ValueError(f"Column '{name}' not found.")

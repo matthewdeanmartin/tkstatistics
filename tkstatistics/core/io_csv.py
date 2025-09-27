@@ -6,9 +6,8 @@ Handles the import and export of data from/to CSV and TSV files.
 from __future__ import annotations
 
 import csv
-import io
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from .dataset import DataSet, TabularData
 
@@ -63,7 +62,7 @@ def import_csv(file_path: Path, encoding: str = "utf-8-sig") -> TabularData:
         dataset_name = file_path.stem
         return TabularData.from_list_of_dicts(dataset_name, raw_data)
 
-    except (IOError, UnicodeDecodeError) as e:
+    except (OSError, UnicodeDecodeError) as e:
         # Fallback for encoding errors
         if encoding == "utf-8-sig":
             try:
