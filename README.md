@@ -6,6 +6,15 @@ Statistical package that uses only python's standard library.
 - Surface anything in the `statistics`, `random` and `math` packages related to statistics.
 - Small data statistics (nonparametric methods, nonnormality, etc)
 
+[![tests](https://github.com/matthewdeanmartin/tkstatistics/actions/workflows/build.yml/badge.svg)
+](https://github.com/matthewdeanmartin/tkstatistics/actions/workflows/tests.yml)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/matthewdeanmartin/tkstatistics/main.svg)
+](https://results.pre-commit.ci/latest/github/matthewdeanmartin/tkstatistics/main)
+[![Downloads](https://img.shields.io/pypi/dm/tkstatistics)](https://pypistats.org/packages/tkstatistics)
+[![Python Version](https://img.shields.io/pypi/pyversions/tkstatistics)
+![Release](https://img.shields.io/pypi/v/tkstatistics)
+](https://pypi.org/project/tkstatistics/)
+
 ## Installation
 
 Doesn't have to run in a virtual environment because doesn't depend on any libraries.
