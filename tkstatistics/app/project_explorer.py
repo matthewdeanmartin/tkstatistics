@@ -7,7 +7,6 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 from collections.abc import Callable
-from tkinter import ttk
 from typing import Any
 
 from tkstatistics.core.project import Project

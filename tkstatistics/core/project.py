@@ -9,7 +9,7 @@ import datetime
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from .dataset import DataSet, TabularData
 
@@ -41,7 +41,7 @@ class Project:
             );
             """
 
-    def __init__(self, filepath: Union[str, Path]):
+    def __init__(self, filepath: str | Path):
         self.filepath = Path(filepath)
         self.conn = sqlite3.connect(self.filepath)
         self._create_schema()
