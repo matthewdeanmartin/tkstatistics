@@ -23,7 +23,7 @@ repos:
       - id: detect-private-key
       - id: forbid-new-submodules
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.20.0
+    rev: v3.21.0
     hooks:
       - id: pyupgrade
         args: [ --py37-plus ]
@@ -37,7 +37,7 @@ repos:
   #        rev: v0.10.1
   #        hooks:
   #            -   id: validate-pyproject
-  - repo: https://github.com/myint/autoflake
+  - repo: https://github.com/PyCQA/autoflake
     rev: v2.3.1
     hooks:
       - id: autoflake
@@ -61,8 +61,8 @@ repos:
   #                name: isort
   #                args:
   #                    - --profile black
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.12.10
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.3
     hooks:
       - id: ruff
         exclude: ^dead_code/
@@ -93,7 +93,7 @@ repos:
 #          - mdformat-gfm
 #          - mdformat-black
   - repo: https://github.com/adamchainz/blacken-docs
-    rev: 1.19.1
+    rev: 1.20.0
     hooks:
     -   id: blacken-docs
         additional_dependencies:

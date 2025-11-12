@@ -300,12 +300,20 @@ tkstatistics/
 
 ```python
 # stats/nonparametric.py
-def mann_whitney_u(x: list[float], y: list[float], *, alternative="two-sided",
-                   exact: bool | None = None) -> dict:
+def mann_whitney_u(
+    x: list[float],
+    y: list[float],
+    *,
+    alternative="two-sided",
+    exact: bool | None = None
+) -> dict:
     """Return U statistics, effect size, and p-value (exact if feasible)."""
 
+
 # stats/parametric.py
-def ttest_ind(a, b, *, equal_var=False, alternative="two-sided") -> dict: ...
+def ttest_ind(a, b, *, equal_var=False, alternative="two-sided") -> dict:
+    ...
+
 
 # stats/regression.py
 def ols(X: list[list[float]], y: list[float]) -> dict:

@@ -66,7 +66,6 @@ class AnalysisDialog(tk.Toplevel):
 
     def apply(self):
         """Override to process data on OK click."""
-        pass
 
 
 class DescriptivesDialog(AnalysisDialog):

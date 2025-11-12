@@ -13,7 +13,6 @@ from tkstatistics.core import specs
 from tkstatistics.core.dataset import TabularData
 from tkstatistics.core.io_csv import import_csv
 from tkstatistics.core.project import Project
-from tkstatistics.stats import descriptives, regression
 
 from .demo import create_demo_dataset
 from .dialogs import DescriptivesDialog, MultipleRegressionDialog, SimpleRegressionDialog
