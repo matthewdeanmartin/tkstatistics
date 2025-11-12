@@ -68,8 +68,8 @@ def import_csv(file_path: Path, encoding: str = "utf-8-sig") -> TabularData:
             try:
                 return import_csv(file_path, encoding="latin-1")
             except Exception:
-                raise e  # Raise original error if fallback fails
-        raise e
+                raise e  # Raise original error if fallback fails # noqa
+        raise
 
 
 def export_csv(table: TabularData, file_path: Path):

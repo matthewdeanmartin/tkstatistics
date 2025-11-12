@@ -7,7 +7,6 @@ No external dependencies.
 """
 from __future__ import annotations
 
-
 Matrix = list[list[float]]
 Vector = list[float]
 

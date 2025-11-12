@@ -37,7 +37,6 @@ class App(tk.Tk):
         self._update_ui_state()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-
     def _on_dataset_selected(self, name: str):
         """Callback from ProjectExplorer when a dataset is clicked."""
         self._load_dataset_into_grid(name)
@@ -146,13 +145,15 @@ class App(tk.Tk):
                 title = f"Descriptives: {var_name}"
             elif analysis_name == "stdlib_simple_regression":
                 dep_var, ind_var = spec["inputs"]["y"], spec["inputs"]["x"]
-                output_text = self._format_regression_results("Simple Linear Regression (stdlib)", dep_var, [ind_var],
-                                                              results)
+                output_text = self._format_regression_results(
+                    "Simple Linear Regression (stdlib)", dep_var, [ind_var], results
+                )
                 title = f"Simple Regression: {dep_var} on {ind_var}"
             elif analysis_name == "ols":
                 dep_var, pred_vars = spec["inputs"]["y"], spec["inputs"]["X"]
-                output_text = self._format_regression_results("Multiple Linear Regression (OLS)", dep_var, pred_vars,
-                                                              results)
+                output_text = self._format_regression_results(
+                    "Multiple Linear Regression (OLS)", dep_var, pred_vars, results
+                )
                 title = f"Multiple Regression: {dep_var}"
             else:
                 title = "Analysis Result"
@@ -187,8 +188,9 @@ class App(tk.Tk):
             return
 
         dep_var, ind_var = selections["dependent"], selections["independent"]
-        spec = specs.create_spec("stdlib_simple_regression", self.active_dataset.name,
-                                 inputs={"y": dep_var, "x": ind_var}, options={})
+        spec = specs.create_spec(
+            "stdlib_simple_regression", self.active_dataset.name, inputs={"y": dep_var, "x": ind_var}, options={}
+        )
         self.project.save_analysis(spec)
         self.project_explorer.populate(self.project)
         self._execute_and_display_spec(spec)  # Use the central executor
@@ -299,32 +301,49 @@ class App(tk.Tk):
     def _format_descriptives_results(self, var_name: str, results: dict[str, Any]) -> str:
         lines = [f"Descriptive Statistics: {var_name}\n"]
         if results.get("mean") is None:
-            return "\n".join(lines + [f"  N: {results['n']}", f"  Missing: {results['missing']}",
-                                      "\n(No valid data to compute statistics)"])
-        lines.extend([
-            f"  N: {results['n']} (Missing: {results['missing']})",
-            f"  Mean: {results['mean']:.4f}", f"  Median: {results['median']:.4f}",
-            f"  Std. Deviation: {results['stdev']:.4f}", f"  Variance: {results['variance']:.4f}",
-            f"  Min: {results['min']:.4f}", f"  Max: {results['max']:.4f}", f"  IQR: {results['iqr']:.4f}"
-        ])
+            return "\n".join(
+                lines
+                + [
+                    f"  N: {results['n']}",
+                    f"  Missing: {results['missing']}",
+                    "\n(No valid data to compute statistics)",
+                ]
+            )
+        lines.extend(
+            [
+                f"  N: {results['n']} (Missing: {results['missing']})",
+                f"  Mean: {results['mean']:.4f}",
+                f"  Median: {results['median']:.4f}",
+                f"  Std. Deviation: {results['stdev']:.4f}",
+                f"  Variance: {results['variance']:.4f}",
+                f"  Min: {results['min']:.4f}",
+                f"  Max: {results['max']:.4f}",
+                f"  IQR: {results['iqr']:.4f}",
+            ]
+        )
         return "\n".join(lines)
 
-    def _format_regression_results(self, title: str, dep_var: str, pred_vars: list[str],
-                                   results: dict[str, Any]) -> str:
+    def _format_regression_results(
+        self, title: str, dep_var: str, pred_vars: list[str], results: dict[str, Any]
+    ) -> str:
         if "error" in results:
             return f"{title}\n\nError: {results['error']}\nDetails: {results.get('details', 'N/A')}"
         lines = [
-            f"{title}", f"Dependent Variable: {dep_var}\n",
-            f"R-squared: {results['r_squared']:.4f}", f"Adjusted R-squared: {results['adj_r_squared']:.4f}",
+            f"{title}",
+            f"Dependent Variable: {dep_var}\n",
+            f"R-squared: {results['r_squared']:.4f}",
+            f"Adjusted R-squared: {results['adj_r_squared']:.4f}",
             f"Observations: {results['n']}\n",
             f"{'Variable':<15} {'Coefficient':>12} {'Std. Error':>12} {'t-statistic':>12}",
-            "-" * 53
+            "-" * 53,
         ]
         lines.append(
-            f"{'(Intercept)':<15} {results['coefficients'][0]:>12.4f} {results['std_errors'][0]:>12.4f} {results['t_statistics'][0]:>12.3f}")
+            f"{'(Intercept)':<15} {results['coefficients'][0]:>12.4f} {results['std_errors'][0]:>12.4f} {results['t_statistics'][0]:>12.3f}"
+        )
         for i, var_name in enumerate(pred_vars):
             lines.append(
-                f"{var_name:<15} {results['coefficients'][i + 1]:>12.4f} {results['std_errors'][i + 1]:>12.4f} {results['t_statistics'][i + 1]:>12.3f}")
+                f"{var_name:<15} {results['coefficients'][i + 1]:>12.4f} {results['std_errors'][i + 1]:>12.4f} {results['t_statistics'][i + 1]:>12.3f}"
+            )
         lines.append(f"\n{results['notes']}")
         return "\n".join(lines)
 

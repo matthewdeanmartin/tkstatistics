@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import json
 import random
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable
 
 # Import all stats functions to register them
 from tkstatistics.stats import descriptives, nonparametric, regression
@@ -77,7 +77,7 @@ def run_spec(spec_path: Path, project_path: Path) -> dict[str, Any]:
     try:
         spec = json.loads(spec_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
-        raise ValueError(f"Failed to load or parse spec file: {e}")
+        raise ValueError(f"Failed to load or parse spec file: {e}") from e
 
     analysis_name = spec.get("analysis")
     if not analysis_name or analysis_name not in ANALYSIS_DISPATCHER:
