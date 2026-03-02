@@ -103,3 +103,23 @@ def test_replay_uses_single_run_record_per_spec_hash(tmp_path):
 
     assert first["spec_hash"] == second["spec_hash"]
     assert count == 1
+
+
+def test_run_spec_payload_supports_one_sample_ttest(tmp_path):
+    project_path = _make_project(tmp_path)
+    project = Project(project_path)
+    try:
+        spec = specs.create_spec(
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "y"},
+            options={"null_mean": 4.0, "alternative": "two-sided", "conf_level": 0.95},
+            seed=99,
+        )
+        artifact = specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+    assert artifact["status"] == "ok"
+    assert artifact["result"]["test"] == "One-Sample Student t-test"
+    assert "p_value" in artifact["result"]

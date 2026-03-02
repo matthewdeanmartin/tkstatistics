@@ -1,16 +1,14 @@
 # Mean Hypothesis Demo
 
-This example includes a tiny dataset and a runnable analysis spec.
+This example includes a tiny dataset and a runnable hypothesis-test spec.
 
 - `dataset.csv` has 5 rows and 1 numeric variable (`score`).
-- `spec.describe.json` runs `describe` on that variable.
+- `spec.describe.json` runs `ttest_1samp` on that variable.
 
-The hypothesis context is included in the spec metadata as an example of a confirmatory plan:
+The confirmatory hypothesis in the spec is:
 
 - Null: mean(score) = 10
 - Alternative: mean(score) != 10
-
-Note: a one-sample mean hypothesis test is not implemented yet in `tkstatistics`, so this example uses `describe` as the current runnable placeholder.
 
 ## Run
 

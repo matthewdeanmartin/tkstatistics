@@ -125,11 +125,15 @@ class App(tk.Tk):
 
             # Prepare keyword arguments from the spec's 'inputs'
             kwargs = {}
-            for role, var_name_or_list in spec.get("inputs", {}).items():
-                if isinstance(var_name_or_list, list):  # For multiple predictors
-                    kwargs[role] = [self.active_dataset.get_column(v) for v in var_name_or_list]
+            for role, var_name_or_value in spec.get("inputs", {}).items():
+                if isinstance(var_name_or_value, str) and var_name_or_value in self.active_dataset.column_names:
+                    kwargs[role] = self.active_dataset.get_column(var_name_or_value)
+                elif isinstance(var_name_or_value, list) and var_name_or_value and all(isinstance(v, str) and v in self.active_dataset.column_names for v in var_name_or_value):
+                    kwargs[role] = [self.active_dataset.get_column(v) for v in var_name_or_value]
                 else:
-                    kwargs[role] = self.active_dataset.get_column(var_name_or_list)
+                    kwargs[role] = var_name_or_value
+
+            kwargs.update(spec.get("options", {}))
 
             # For multiple regression, the `ols` function expects rows, not columns
             if analysis_name == "ols":

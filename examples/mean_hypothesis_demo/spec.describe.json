@@ -1,11 +1,15 @@
 {
   "spec_version": 1,
-  "analysis": "describe",
+  "analysis": "ttest_1samp",
   "dataset": "mean_test_demo",
   "inputs": {
     "data": "score"
   },
-  "options": {},
+  "options": {
+    "null_mean": 10,
+    "alternative": "two-sided",
+    "conf_level": 0.95
+  },
   "seed": 12345,
   "mode": "confirmatory",
   "plan_id": "mean-hypothesis-demo",
@@ -13,6 +17,7 @@
   "hypothesis": {
     "parameter": "mean(score)",
     "null": "mean = 10",
-    "alternative": "mean != 10"
+    "alternative": "mean != 10",
+    "test": "one-sample student t"
   }
 }

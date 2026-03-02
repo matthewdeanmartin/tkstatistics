@@ -17,7 +17,7 @@ from typing import Any
 from tkstatistics.__about__ import __version__
 
 # Import all stats functions to register them
-from tkstatistics.stats import descriptives, nonparametric, regression
+from tkstatistics.stats import descriptives, nonparametric, parametric, regression
 
 from .project import Project
 
@@ -31,7 +31,8 @@ ANALYSIS_DISPATCHER: dict[str, Callable[..., dict[str, Any]]] = {
     "mann_whitney_u": nonparametric.mann_whitney_u,
     "wilcoxon_signed_rank": nonparametric.wilcoxon_signed_rank,
     "fisher_exact_2x2": nonparametric.fisher_exact_2x2,
-    # "ttest_ind": parametric.ttest_ind, # To be added
+    # Parametric
+    "ttest_1samp": parametric.ttest_1samp,
     # Regression
     "ols": regression.ols,
     "stdlib_simple_regression": regression.stdlib_simple_regression,  # <-- New entry
@@ -45,6 +46,7 @@ _ANALYSIS_INPUT_RULES: dict[str, dict[str, str]] = {
     "mann_whitney_u": {"x": "column_or_list", "y": "column_or_list"},
     "wilcoxon_signed_rank": {"x": "column_or_list", "y": "column_or_list"},
     "fisher_exact_2x2": {"table": "literal"},
+    "ttest_1samp": {"data": "column"},
     "stdlib_simple_regression": {"x": "column", "y": "column"},
     "ols": {"X": "column_list_or_matrix", "y": "column"},
 }
@@ -55,6 +57,7 @@ _ANALYSIS_OPTION_RULES: dict[str, set[str]] = {
     "mann_whitney_u": set(),
     "wilcoxon_signed_rank": set(),
     "fisher_exact_2x2": set(),
+    "ttest_1samp": {"null_mean", "alternative", "conf_level"},
     "stdlib_simple_regression": set(),
     "ols": {"add_intercept"},
 }
@@ -237,6 +240,16 @@ def validate_spec(spec: dict[str, Any], project: Project) -> dict[str, Any]:
 
     if analysis_name == "ols" and "add_intercept" in options and not isinstance(options["add_intercept"], bool):
         raise ValueError("Option 'add_intercept' must be a boolean.")
+
+    if analysis_name == "ttest_1samp":
+        if "null_mean" in options and not isinstance(options["null_mean"], (int, float)):
+            raise ValueError("Option 'null_mean' must be numeric.")
+        if "alternative" in options and options["alternative"] not in {"two-sided", "less", "greater"}:
+            raise ValueError("Option 'alternative' must be one of: two-sided, less, greater.")
+        if "conf_level" in options:
+            conf_level = options["conf_level"]
+            if not isinstance(conf_level, (int, float)) or not (0 < float(conf_level) < 1):
+                raise ValueError("Option 'conf_level' must be numeric and between 0 and 1.")
 
     return normalized
 
