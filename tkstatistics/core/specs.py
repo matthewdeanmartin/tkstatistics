@@ -18,6 +18,7 @@ from tkstatistics.__about__ import __version__
 
 # Import all stats functions to register them
 from tkstatistics.stats import descriptives, nonparametric, parametric, regression
+from tkstatistics.stats.multiplicity import holm_bonferroni_correction
 
 from .project import Project
 
@@ -303,7 +304,7 @@ def run_spec_payload(spec: dict[str, Any], project: Project) -> dict[str, Any]:
     finally:
         random.setstate(random_state)
 
-    return {
+    artifact = {
         "spec": normalized_spec,
         "spec_hash": compute_spec_hash(normalized_spec),
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -313,6 +314,31 @@ def run_spec_payload(spec: dict[str, Any], project: Project) -> dict[str, Any]:
         "warnings": [],
         "status": "ok",
     }
+
+    # Multiplicity correction — only when the analysis produced a p_value
+    if isinstance(results, dict) and "p_value" in results:
+        current_p = results["p_value"]
+        dataset_name = normalized_spec["dataset"]
+        current_hash = artifact["spec_hash"]
+
+        # Get prior completed runs; exclude current spec (handles re-runs via UPSERT)
+        prior_pairs = project.get_p_values_for_dataset(dataset_name)
+        pool_pairs = [(h, p) for h, p in prior_pairs if h != current_hash]
+        pool_pairs.append((current_hash, current_p))
+
+        pool_p_values = [p for _, p in pool_pairs]
+        current_idx = len(pool_pairs) - 1  # always last (appended above)
+
+        adjusted = holm_bonferroni_correction(pool_p_values)
+
+        artifact["multiplicity"] = {
+            "method": "holm-bonferroni",
+            "num_tests_on_dataset": len(pool_pairs),
+            "adjusted_p_value": adjusted[current_idx],
+            "note": "Based on all completed analyses on this dataset.",
+        }
+
+    return artifact
 
 
 def run_spec(spec_path: Path, project_path: Path) -> dict[str, Any]:

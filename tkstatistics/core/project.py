@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import math
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -160,3 +161,24 @@ class Project:
                 """,
                 (dataset_id, spec_hash, spec_json, result_json, now, now),
             )
+
+    def get_p_values_for_dataset(self, dataset_name: str) -> list[tuple[str, float]]:
+        """Returns [(spec_hash, p_value), ...] for all saved runs on dataset with a p_value."""
+        dataset_id = self.get_dataset_id(dataset_name)
+        if dataset_id is None:
+            return []
+        cursor = self.conn.cursor()
+        cursor.execute(
+            "SELECT spec_hash, result_json FROM analysis_runs WHERE dataset_id = ? ORDER BY id",
+            (dataset_id,),
+        )
+        results = []
+        for spec_hash, result_json_str in cursor.fetchall():
+            try:
+                artifact = json.loads(result_json_str)
+                p_value = artifact.get("result", {}).get("p_value")
+                if isinstance(p_value, (int, float)) and math.isfinite(p_value):
+                    results.append((spec_hash, float(p_value)))
+            except (json.JSONDecodeError, AttributeError):
+                continue
+        return results

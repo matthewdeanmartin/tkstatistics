@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from tkstatistics import cli
 from tkstatistics.core import specs
 from tkstatistics.core.dataset import TabularData
@@ -143,3 +145,56 @@ def test_run_spec_payload_supports_independent_ttest(tmp_path):
     assert artifact["status"] == "ok"
     assert artifact["result"]["test"] == "Independent Two-Sample t-test"
     assert artifact["result"]["variant"] == "welch"
+
+
+def test_multiplicity_applied_for_two_specs_on_same_dataset(tmp_path):
+    project_path = _make_project(tmp_path)
+    project = Project(project_path)
+    try:
+        spec1 = specs.create_spec(
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "y"},
+            options={},
+            seed=10,
+        )
+        artifact1 = specs.run_spec_payload(spec1, project)
+        # Save spec1 so it appears in the pool for spec2
+        project.save_run_artifact(artifact1)
+
+        spec2 = specs.create_spec(
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "x"},
+            options={},
+            seed=20,
+        )
+        artifact2 = specs.run_spec_payload(spec2, project)
+    finally:
+        project.close()
+
+    # spec1 was the only test at run time → adjusted == raw p-value
+    assert artifact1["multiplicity"]["num_tests_on_dataset"] == 1
+    assert artifact1["multiplicity"]["adjusted_p_value"] == pytest.approx(artifact1["result"]["p_value"])
+
+    # spec2 sees spec1 in the pool → num_tests == 2 and adjusted >= raw
+    assert artifact2["multiplicity"]["num_tests_on_dataset"] == 2
+    assert artifact2["multiplicity"]["adjusted_p_value"] >= artifact2["result"]["p_value"] - 1e-12
+
+
+def test_multiplicity_not_added_for_descriptive_analysis(tmp_path):
+    project_path = _make_project(tmp_path)
+    project = Project(project_path)
+    try:
+        spec = specs.create_spec(
+            "describe",
+            "demo",
+            inputs={"data": "x"},
+            options={},
+            seed=1,
+        )
+        artifact = specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+    assert "multiplicity" not in artifact
