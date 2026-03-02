@@ -3,6 +3,7 @@
 """
 Manages the SQLite project file, including schema, data storage, and retrieval.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -38,6 +39,16 @@ class Project:
                 dataset_id INTEGER,
                 spec_json TEXT NOT NULL,
                 created_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS analysis_runs (
+                id INTEGER PRIMARY KEY,
+                dataset_id INTEGER,
+                spec_hash TEXT NOT NULL UNIQUE,
+                spec_json TEXT NOT NULL,
+                result_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             );
             """
 
@@ -75,16 +86,12 @@ class Project:
                 # Clear old data for this dataset
                 cursor.execute("DELETE FROM rows WHERE dataset_id = ?", (dataset_id,))
             else:
-                cursor.execute(
-                    "INSERT INTO datasets (name, created_at, updated_at) VALUES (?, ?, ?)", (table.name, now, now)
-                )
+                cursor.execute("INSERT INTO datasets (name, created_at, updated_at) VALUES (?, ?, ?)", (table.name, now, now))
                 dataset_id = cursor.lastrowid
 
             rows_to_insert = [(dataset_id, i, json.dumps(row)) for i, row in enumerate(table.to_list_of_dicts())]
             if rows_to_insert:
-                cursor.executemany(
-                    "INSERT INTO rows (dataset_id, row_idx, payload_json) VALUES (?, ?, ?)", rows_to_insert
-                )
+                cursor.executemany("INSERT INTO rows (dataset_id, row_idx, payload_json) VALUES (?, ?, ?)", rows_to_insert)
 
     def load_dataset(self, name: str) -> TabularData:
         """Loads a dataset from the database by name."""
@@ -125,3 +132,31 @@ class Project:
         cursor = self.conn.cursor()
         cursor.execute("SELECT spec_json FROM analyses ORDER BY id")
         return [json.loads(row[0]) for row in cursor.fetchall()]
+
+    def save_run_artifact(self, artifact: dict[str, Any]):
+        """Saves or updates a headless run artifact keyed by spec hash."""
+        spec = artifact.get("spec", {})
+        spec_hash = artifact.get("spec_hash")
+        if not isinstance(spec_hash, str) or not spec_hash:
+            raise ValueError("Run artifact must include a non-empty spec_hash.")
+
+        dataset_name = spec.get("dataset") if isinstance(spec, dict) else None
+        dataset_id = self.get_dataset_id(dataset_name) if dataset_name else None
+
+        now = datetime.datetime.now().isoformat()
+        spec_json = json.dumps(spec, sort_keys=True)
+        result_json = json.dumps(artifact, sort_keys=True)
+
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO analysis_runs (dataset_id, spec_hash, spec_json, result_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(spec_hash) DO UPDATE SET
+                    dataset_id = excluded.dataset_id,
+                    spec_json = excluded.spec_json,
+                    result_json = excluded.result_json,
+                    updated_at = excluded.updated_at
+                """,
+                (dataset_id, spec_hash, spec_json, result_json, now, now),
+            )

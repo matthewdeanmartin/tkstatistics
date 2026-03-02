@@ -145,21 +145,18 @@ class App(tk.Tk):
                 title = f"Descriptives: {var_name}"
             elif analysis_name == "stdlib_simple_regression":
                 dep_var, ind_var = spec["inputs"]["y"], spec["inputs"]["x"]
-                output_text = self._format_regression_results(
-                    "Simple Linear Regression (stdlib)", dep_var, [ind_var], results
-                )
+                output_text = self._format_regression_results("Simple Linear Regression (stdlib)", dep_var, [ind_var], results)
                 title = f"Simple Regression: {dep_var} on {ind_var}"
             elif analysis_name == "ols":
                 dep_var, pred_vars = spec["inputs"]["y"], spec["inputs"]["X"]
-                output_text = self._format_regression_results(
-                    "Multiple Linear Regression (OLS)", dep_var, pred_vars, results
-                )
+                output_text = self._format_regression_results("Multiple Linear Regression (OLS)", dep_var, pred_vars, results)
                 title = f"Multiple Regression: {dep_var}"
             else:
                 title = "Analysis Result"
                 output_text = str(results)  # Fallback formatting
 
-            self.output_viewer.add_result(title, output_text)
+            result_key = specs.compute_spec_hash(spec)
+            self.output_viewer.add_result(title, output_text, result_key=result_key)
 
         except Exception as e:
             messagebox.showerror("Analysis Error", f"Failed to re-run analysis:\n{e}", parent=self)
@@ -188,9 +185,7 @@ class App(tk.Tk):
             return
 
         dep_var, ind_var = selections["dependent"], selections["independent"]
-        spec = specs.create_spec(
-            "stdlib_simple_regression", self.active_dataset.name, inputs={"y": dep_var, "x": ind_var}, options={}
-        )
+        spec = specs.create_spec("stdlib_simple_regression", self.active_dataset.name, inputs={"y": dep_var, "x": ind_var}, options={})
         self.project.save_analysis(spec)
         self.project_explorer.populate(self.project)
         self._execute_and_display_spec(spec)  # Use the central executor
@@ -239,9 +234,7 @@ class App(tk.Tk):
         self.graphs_menu = graphs_menu
 
     def _new_project(self):
-        path = filedialog.asksaveasfilename(
-            title="Create New Project", defaultextension=".statproj", filetypes=[("tkstatistics Project", "*.statproj")]
-        )
+        path = filedialog.asksaveasfilename(title="Create New Project", defaultextension=".statproj", filetypes=[("tkstatistics Project", "*.statproj")])
         if path:
             self._set_project(Project(path))
 
@@ -323,9 +316,7 @@ class App(tk.Tk):
         )
         return "\n".join(lines)
 
-    def _format_regression_results(
-        self, title: str, dep_var: str, pred_vars: list[str], results: dict[str, Any]
-    ) -> str:
+    def _format_regression_results(self, title: str, dep_var: str, pred_vars: list[str], results: dict[str, Any]) -> str:
         if "error" in results:
             return f"{title}\n\nError: {results['error']}\nDetails: {results.get('details', 'N/A')}"
         lines = [
@@ -337,13 +328,9 @@ class App(tk.Tk):
             f"{'Variable':<15} {'Coefficient':>12} {'Std. Error':>12} {'t-statistic':>12}",
             "-" * 53,
         ]
-        lines.append(
-            f"{'(Intercept)':<15} {results['coefficients'][0]:>12.4f} {results['std_errors'][0]:>12.4f} {results['t_statistics'][0]:>12.3f}"
-        )
+        lines.append(f"{'(Intercept)':<15} {results['coefficients'][0]:>12.4f} {results['std_errors'][0]:>12.4f} {results['t_statistics'][0]:>12.3f}")
         for i, var_name in enumerate(pred_vars):
-            lines.append(
-                f"{var_name:<15} {results['coefficients'][i + 1]:>12.4f} {results['std_errors'][i + 1]:>12.4f} {results['t_statistics'][i + 1]:>12.3f}"
-            )
+            lines.append(f"{var_name:<15} {results['coefficients'][i + 1]:>12.4f} {results['std_errors'][i + 1]:>12.4f} {results['t_statistics'][i + 1]:>12.3f}")
         lines.append(f"\n{results['notes']}")
         return "\n".join(lines)
 

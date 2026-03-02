@@ -4,10 +4,15 @@
 Command-line interface for tkstatistics.
 Launches the GUI or runs analyses headlessly.
 """
+
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
+
+from tkstatistics.core import specs
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -17,6 +22,16 @@ def main(argv: list[str] | None = None) -> int:
         "--run",
         metavar="SPEC_FILE",
         help="Run an analysis headlessly from a JSON specification file.",
+    )
+    parser.add_argument(
+        "--project",
+        metavar="PROJECT_FILE",
+        help="Project file used by --run.",
+    )
+    parser.add_argument(
+        "--output",
+        metavar="OUTPUT_FILE",
+        help="Optional path to write the JSON run artifact.",
     )
     parser.add_argument(
         "--gui",
@@ -30,9 +45,29 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.run:
-        print(f"Headless mode: Running analysis from {args.run}...")
-        # TODO: Implement spec runner logic from core.specs
-        print("(Not yet implemented)")
+        if not args.project:
+            print("Error: --project is required when using --run.", file=sys.stderr)
+            return 2
+
+        spec_path = Path(args.run)
+        project_path = Path(args.project)
+
+        try:
+            artifact = specs.run_spec(spec_path, project_path)
+        except Exception as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+
+        artifact_json = json.dumps(artifact, indent=2, sort_keys=True)
+        if args.output:
+            output_path = Path(args.output)
+            try:
+                output_path.write_text(artifact_json + "\n", encoding="utf-8")
+            except OSError as exc:
+                print(f"Error writing output artifact: {exc}", file=sys.stderr)
+                return 1
+
+        print(artifact_json)
         return 0
     else:
         # Default action is to launch the GUI

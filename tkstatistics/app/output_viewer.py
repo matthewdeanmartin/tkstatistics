@@ -3,6 +3,7 @@
 """
 A widget to display a history of analysis results and their formatted text output.
 """
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -16,6 +17,7 @@ class OutputViewer(ttk.Frame):
         super().__init__(master, **kwargs)
 
         self.results_map: dict[str, str] = {}
+        self.result_key_map: dict[str, str] = {}
 
         # Main container
         paned_window = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
@@ -68,16 +70,25 @@ class OutputViewer(ttk.Frame):
         self.text.insert("1.0", content)
         self.text.config(state=tk.DISABLED)
 
-    def add_result(self, title: str, content: str):
+    def add_result(self, title: str, content: str, result_key: str | None = None):
         """
-        Adds a new analysis result to the viewer and immediately displays it.
+        Adds or updates an analysis result and immediately displays it.
 
         Args:
             title: The title to display in the history tree.
             content: The formatted string content of the result.
+            result_key: Optional stable key used to update an existing history item
+                instead of inserting a duplicate.
         """
-        # The item ID is the return value of the insert method
-        item_id = self.tree.insert("", "end", text=title)
+        item_id = self.result_key_map.get(result_key, "") if result_key else ""
+        if item_id and self.tree.exists(item_id):
+            self.tree.item(item_id, text=title)
+        else:
+            # The item ID is the return value of the insert method
+            item_id = self.tree.insert("", "end", text=title)
+            if result_key:
+                self.result_key_map[result_key] = item_id
+
         self.results_map[item_id] = content
 
         # Automatically select the new item

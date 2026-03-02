@@ -1,0 +1,18 @@
+{
+  "spec_version": 1,
+  "analysis": "describe",
+  "dataset": "mean_test_demo",
+  "inputs": {
+    "data": "score"
+  },
+  "options": {},
+  "seed": 12345,
+  "mode": "confirmatory",
+  "plan_id": "mean-hypothesis-demo",
+  "app_version": "0.1.0",
+  "hypothesis": {
+    "parameter": "mean(score)",
+    "null": "mean = 10",
+    "alternative": "mean != 10"
+  }
+}
