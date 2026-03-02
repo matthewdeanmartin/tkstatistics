@@ -123,3 +123,23 @@ def test_run_spec_payload_supports_one_sample_ttest(tmp_path):
     assert artifact["status"] == "ok"
     assert artifact["result"]["test"] == "One-Sample Student t-test"
     assert "p_value" in artifact["result"]
+
+
+def test_run_spec_payload_supports_independent_ttest(tmp_path):
+    project_path = _make_project(tmp_path)
+    project = Project(project_path)
+    try:
+        spec = specs.create_spec(
+            "ttest_ind",
+            "demo",
+            inputs={"x": "x", "y": "y"},
+            options={"variance_assumption": "welch", "alternative": "two-sided", "conf_level": 0.95},
+            seed=11,
+        )
+        artifact = specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+    assert artifact["status"] == "ok"
+    assert artifact["result"]["test"] == "Independent Two-Sample t-test"
+    assert artifact["result"]["variant"] == "welch"
