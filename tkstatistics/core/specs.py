@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import random
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -307,7 +307,7 @@ def run_spec_payload(spec: dict[str, Any], project: Project) -> dict[str, Any]:
     artifact = {
         "spec": normalized_spec,
         "spec_hash": compute_spec_hash(normalized_spec),
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "timestamp_utc": datetime.now(UTC).isoformat(),
         "app_version": __version__,
         "dataset_fingerprint": _dataset_fingerprint(dataset),
         "result": results,
