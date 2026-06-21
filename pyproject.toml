@@ -4,16 +4,13 @@ version = "0.1.0"
 description = "Statistics Application using only the Python Standard Library."
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
 readme = "README.md"
-# requires-python = ">=3.13.2"
-# 3.13.0 is missin tkinter!
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     # And backports!
     "tomli>=2.0; python_version < '3.11'", # For config.toml parsing
 ]
 classifiers = [
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -96,9 +93,10 @@ dev = [
     "codespell>=2.2.6; python_version >= '3.8'",
     "pyenchant>=3.2.2; python_version >= '3.8'",
 
-    # real stats apps
+    # real stats apps (used only as equivalence-test oracles, never at runtime)
     "scipy",
     "numpy",
+    "statsmodels",
     "keepachangelog-manager-fork>=6.1.1,<7",
 ]
 

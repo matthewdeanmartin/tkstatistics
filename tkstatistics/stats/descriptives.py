@@ -54,9 +54,18 @@ def describe(data: list[Numeric | None]) -> dict[str, Any]:
     min_val = min(clean_data)
     max_val = max(clean_data)
 
-    # Quantiles
-    q = statistics.quantiles(clean_data, n=4)  # q[0]=Q1, q[1]=Q2, q[2]=Q3
-    iqr = q[2] - q[0]
+    # Quantiles require at least two data points; statistics.quantiles raises on n<2.
+    if n >= 2:
+        q = statistics.quantiles(clean_data, n=4)  # q[0]=Q1, q[1]=Q2, q[2]=Q3
+        iqr = q[2] - q[0]
+        quantiles = {
+            "25% (Q1)": q[0],
+            "50% (Median)": q[1],
+            "75% (Q3)": q[2],
+        }
+    else:
+        iqr = None
+        quantiles = {}
 
     return {
         "n": len(data),
@@ -70,11 +79,7 @@ def describe(data: list[Numeric | None]) -> dict[str, Any]:
         "max": max_val,
         "range": max_val - min_val,
         "iqr": iqr,
-        "quantiles": {
-            "25% (Q1)": q[0],
-            "50% (Median)": q[1],
-            "75% (Q3)": q[2],
-        },
+        "quantiles": quantiles,
     }
 
 

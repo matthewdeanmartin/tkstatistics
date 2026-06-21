@@ -109,6 +109,367 @@ class DescriptivesDialog(AnalysisDialog):
 # --- New Dialogs for Regression ---
 
 
+class HistogramDialog(AnalysisDialog):
+    """Dialog for choosing a variable and bin count for a histogram."""
+
+    def __init__(self, master, variables: list[str]):
+        self.variable = tk.StringVar()
+        self.bins = tk.IntVar(value=10)
+        super().__init__(master, title="Histogram", variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        var_frame = ttk.Labelframe(master, text="Variable")
+        var_combo = ttk.Combobox(var_frame, textvariable=self.variable, values=self.variables, state="readonly")
+        var_combo.pack(padx=5, pady=5)
+        var_frame.pack(fill="x", expand=True, pady=5)
+
+        bins_frame = ttk.Labelframe(master, text="Number of bins")
+        bins_spin = ttk.Spinbox(bins_frame, from_=1, to=100, textvariable=self.bins, width=6)
+        bins_spin.pack(padx=5, pady=5)
+        bins_frame.pack(fill="x", expand=True, pady=5)
+
+    def validate(self) -> bool:
+        if not self.variable.get():
+            messagebox.showwarning("No Selection", "Please select a variable.", parent=self)
+            return False
+        try:
+            if self.bins.get() < 1:
+                raise ValueError
+        except (tk.TclError, ValueError):
+            messagebox.showwarning("Invalid Bins", "Number of bins must be a positive integer.", parent=self)
+            return False
+        return True
+
+    def apply(self):
+        self.result = {"variable": self.variable.get(), "bins": self.bins.get()}
+
+
+class OneSampleTTestDialog(AnalysisDialog):
+    """Dialog for a one-sample t-test."""
+
+    def __init__(self, master, variables: list[str]):
+        self.variable = tk.StringVar()
+        self.null_mean = tk.StringVar(value="0")
+        self.alternative = tk.StringVar(value="two-sided")
+        super().__init__(master, title="One-Sample t-test", variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        var_frame = ttk.Labelframe(master, text="Test Variable")
+        ttk.Combobox(var_frame, textvariable=self.variable, values=self.variables, state="readonly").pack(padx=5, pady=5)
+        var_frame.pack(fill="x", expand=True, pady=5)
+
+        mean_frame = ttk.Labelframe(master, text="Null hypothesis mean (μ₀)")
+        ttk.Entry(mean_frame, textvariable=self.null_mean, width=12).pack(padx=5, pady=5)
+        mean_frame.pack(fill="x", expand=True, pady=5)
+
+        alt_frame = ttk.Labelframe(master, text="Alternative")
+        ttk.Combobox(
+            alt_frame, textvariable=self.alternative,
+            values=["two-sided", "less", "greater"], state="readonly",
+        ).pack(padx=5, pady=5)
+        alt_frame.pack(fill="x", expand=True, pady=5)
+
+    def validate(self) -> bool:
+        if not self.variable.get():
+            messagebox.showwarning("No Selection", "Please select a test variable.", parent=self)
+            return False
+        try:
+            float(self.null_mean.get())
+        except ValueError:
+            messagebox.showwarning("Invalid Value", "Null mean must be a number.", parent=self)
+            return False
+        return True
+
+    def apply(self):
+        self.result = {
+            "variable": self.variable.get(),
+            "null_mean": float(self.null_mean.get()),
+            "alternative": self.alternative.get(),
+        }
+
+
+class TwoSampleDialog(AnalysisDialog):
+    """Dialog for tests comparing two variables (independent t, Mann-Whitney, Wilcoxon)."""
+
+    def __init__(self, master, variables: list[str], title: str, *, show_variance: bool = False):
+        self.x_var = tk.StringVar()
+        self.y_var = tk.StringVar()
+        self.alternative = tk.StringVar(value="two-sided")
+        self.variance = tk.StringVar(value="welch")
+        self._show_variance = show_variance
+        super().__init__(master, title=title, variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        x_frame = ttk.Labelframe(master, text="Variable 1 (X)")
+        ttk.Combobox(x_frame, textvariable=self.x_var, values=self.variables, state="readonly").pack(padx=5, pady=5)
+        x_frame.pack(fill="x", expand=True, pady=5)
+
+        y_frame = ttk.Labelframe(master, text="Variable 2 (Y)")
+        ttk.Combobox(y_frame, textvariable=self.y_var, values=self.variables, state="readonly").pack(padx=5, pady=5)
+        y_frame.pack(fill="x", expand=True, pady=5)
+
+        alt_frame = ttk.Labelframe(master, text="Alternative")
+        ttk.Combobox(
+            alt_frame, textvariable=self.alternative,
+            values=["two-sided", "less", "greater"], state="readonly",
+        ).pack(padx=5, pady=5)
+        alt_frame.pack(fill="x", expand=True, pady=5)
+
+        if self._show_variance:
+            var_frame = ttk.Labelframe(master, text="Variance assumption")
+            ttk.Combobox(
+                var_frame, textvariable=self.variance,
+                values=["welch", "pooled"], state="readonly",
+            ).pack(padx=5, pady=5)
+            var_frame.pack(fill="x", expand=True, pady=5)
+
+    def validate(self) -> bool:
+        if not self.x_var.get() or not self.y_var.get():
+            messagebox.showwarning("Incomplete Selection", "Please select both variables.", parent=self)
+            return False
+        if self.x_var.get() == self.y_var.get():
+            messagebox.showwarning("Invalid Selection", "The two variables must be different.", parent=self)
+            return False
+        return True
+
+    def apply(self):
+        self.result = {
+            "x": self.x_var.get(),
+            "y": self.y_var.get(),
+            "alternative": self.alternative.get(),
+            "variance_assumption": self.variance.get(),
+        }
+
+
+class FisherExactDialog(AnalysisDialog):
+    """Dialog for entering a 2x2 contingency table for Fisher's exact test."""
+
+    def __init__(self, master, variables: list[str]):
+        self.cells = [[tk.StringVar(value="0") for _ in range(2)] for _ in range(2)]
+        super().__init__(master, title="Fisher's Exact Test (2x2)", variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        ttk.Label(master, text="Enter the 2x2 contingency table counts:").grid(row=0, column=0, columnspan=3, pady=4)
+        for r in range(2):
+            for c in range(2):
+                ttk.Entry(master, textvariable=self.cells[r][c], width=8).grid(row=r + 1, column=c + 1, padx=4, pady=4)
+        ttk.Label(master, text="Row 1").grid(row=1, column=0)
+        ttk.Label(master, text="Row 2").grid(row=2, column=0)
+
+    def validate(self) -> bool:
+        for row in self.cells:
+            for var in row:
+                try:
+                    if int(var.get()) < 0:
+                        raise ValueError
+                except ValueError:
+                    messagebox.showwarning("Invalid Value", "All cells must be non-negative integers.", parent=self)
+                    return False
+        return True
+
+    def apply(self):
+        self.result = {"table": [[int(self.cells[r][c].get()) for c in range(2)] for r in range(2)]}
+
+
+class SingleVariableDialog(AnalysisDialog):
+    """Generic dialog for picking exactly one variable (box plot, Q-Q plot)."""
+
+    def __init__(self, master, variables: list[str], title: str = "Select Variable"):
+        self.variable = tk.StringVar()
+        super().__init__(master, title=title, variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        frame = ttk.Labelframe(master, text="Variable")
+        combo = ttk.Combobox(frame, textvariable=self.variable, values=self.variables, state="readonly")
+        combo.pack(padx=5, pady=5)
+        frame.pack(fill="x", expand=True, pady=5)
+
+    def validate(self) -> bool:
+        if not self.variable.get():
+            messagebox.showwarning("No Selection", "Please select a variable.", parent=self)
+            return False
+        return True
+
+    def apply(self):
+        self.result = {"variable": self.variable.get()}
+
+
+class ScatterDialog(AnalysisDialog):
+    """Dialog for a scatter plot: X, Y, and an optional fitted line."""
+
+    def __init__(self, master, variables: list[str]):
+        self.x_var = tk.StringVar()
+        self.y_var = tk.StringVar()
+        self.fit_line = tk.BooleanVar(value=False)
+        super().__init__(master, title="Scatter Plot", variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        x_frame = ttk.Labelframe(master, text="X (horizontal)")
+        ttk.Combobox(x_frame, textvariable=self.x_var, values=self.variables, state="readonly").pack(padx=5, pady=5)
+        x_frame.pack(fill="x", expand=True, pady=5)
+
+        y_frame = ttk.Labelframe(master, text="Y (vertical)")
+        ttk.Combobox(y_frame, textvariable=self.y_var, values=self.variables, state="readonly").pack(padx=5, pady=5)
+        y_frame.pack(fill="x", expand=True, pady=5)
+
+        ttk.Checkbutton(master, text="Overlay fitted regression line", variable=self.fit_line).pack(anchor="w", pady=5)
+
+    def validate(self) -> bool:
+        if not self.x_var.get() or not self.y_var.get():
+            messagebox.showwarning("Incomplete Selection", "Please select both X and Y variables.", parent=self)
+            return False
+        if self.x_var.get() == self.y_var.get():
+            messagebox.showwarning("Invalid Selection", "X and Y cannot be the same variable.", parent=self)
+            return False
+        return True
+
+    def apply(self):
+        self.result = {"x": self.x_var.get(), "y": self.y_var.get(), "fit_line": self.fit_line.get()}
+
+
+_INFERENTIAL_TESTS = {
+    "One-Sample t-test": "ttest_1samp",
+    "Independent t-test": "ttest_ind",
+    "Mann-Whitney U": "mann_whitney_u",
+    "Wilcoxon Signed-Rank": "wilcoxon_signed_rank",
+}
+
+
+class DeclareHypothesisDialog(AnalysisDialog):
+    """Dialog to pre-register a hypothesis and the confirmatory test for it.
+
+    Captures the hypothesis statement, the test + variables + decision options,
+    and alpha. The result is consumed by the app to build and commit a plan
+    BEFORE the test is ever run — the anti-p-hacking ceremony.
+    """
+
+    def __init__(self, master, variables: list[str]):
+        self.hypothesis = tk.StringVar()
+        self.prediction = tk.StringVar()
+        self.test_label = tk.StringVar(value="One-Sample t-test")
+        self.x_var = tk.StringVar()
+        self.y_var = tk.StringVar()
+        self.null_mean = tk.StringVar(value="0")
+        self.alternative = tk.StringVar(value="two-sided")
+        self.variance = tk.StringVar(value="welch")
+        self.alpha = tk.StringVar(value="0.05")
+        super().__init__(master, title="Pre-register Hypothesis", variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        hyp_frame = ttk.Labelframe(master, text="Hypothesis (stated before seeing the result)")
+        ttk.Entry(hyp_frame, textvariable=self.hypothesis, width=50).pack(padx=5, pady=5, fill="x")
+        hyp_frame.pack(fill="x", expand=True, pady=4)
+
+        pred_frame = ttk.Labelframe(master, text="Directional prediction (optional)")
+        ttk.Entry(pred_frame, textvariable=self.prediction, width=50).pack(padx=5, pady=5, fill="x")
+        pred_frame.pack(fill="x", expand=True, pady=4)
+
+        test_frame = ttk.Labelframe(master, text="Confirmatory test")
+        ttk.Combobox(
+            test_frame, textvariable=self.test_label,
+            values=list(_INFERENTIAL_TESTS), state="readonly",
+        ).pack(padx=5, pady=5)
+        test_frame.pack(fill="x", expand=True, pady=4)
+
+        var_frame = ttk.Labelframe(master, text="Variables")
+        ttk.Label(var_frame, text="X / data:").grid(row=0, column=0, sticky="e", padx=3, pady=3)
+        ttk.Combobox(var_frame, textvariable=self.x_var, values=self.variables, state="readonly", width=18).grid(row=0, column=1, padx=3, pady=3)
+        ttk.Label(var_frame, text="Y (two-sample):").grid(row=1, column=0, sticky="e", padx=3, pady=3)
+        ttk.Combobox(var_frame, textvariable=self.y_var, values=self.variables, state="readonly", width=18).grid(row=1, column=1, padx=3, pady=3)
+        var_frame.pack(fill="x", expand=True, pady=4)
+
+        opt_frame = ttk.Labelframe(master, text="Decision options")
+        ttk.Label(opt_frame, text="Null mean (μ₀):").grid(row=0, column=0, sticky="e", padx=3, pady=3)
+        ttk.Entry(opt_frame, textvariable=self.null_mean, width=10).grid(row=0, column=1, padx=3, pady=3)
+        ttk.Label(opt_frame, text="Alternative:").grid(row=1, column=0, sticky="e", padx=3, pady=3)
+        ttk.Combobox(opt_frame, textvariable=self.alternative, values=["two-sided", "less", "greater"], state="readonly", width=10).grid(row=1, column=1, padx=3, pady=3)
+        ttk.Label(opt_frame, text="Variance:").grid(row=2, column=0, sticky="e", padx=3, pady=3)
+        ttk.Combobox(opt_frame, textvariable=self.variance, values=["welch", "pooled"], state="readonly", width=10).grid(row=2, column=1, padx=3, pady=3)
+        ttk.Label(opt_frame, text="Alpha (α):").grid(row=3, column=0, sticky="e", padx=3, pady=3)
+        ttk.Entry(opt_frame, textvariable=self.alpha, width=10).grid(row=3, column=1, padx=3, pady=3)
+        opt_frame.pack(fill="x", expand=True, pady=4)
+
+    def validate(self) -> bool:
+        if not self.hypothesis.get().strip():
+            messagebox.showwarning("Missing Hypothesis", "Please state your hypothesis first.", parent=self)
+            return False
+        analysis = _INFERENTIAL_TESTS[self.test_label.get()]
+        if not self.x_var.get():
+            messagebox.showwarning("Missing Variable", "Please select the X / data variable.", parent=self)
+            return False
+        if analysis in ("ttest_ind", "mann_whitney_u", "wilcoxon_signed_rank"):
+            if not self.y_var.get():
+                messagebox.showwarning("Missing Variable", "This test needs a second (Y) variable.", parent=self)
+                return False
+            if self.x_var.get() == self.y_var.get():
+                messagebox.showwarning("Invalid Selection", "X and Y must differ.", parent=self)
+                return False
+        try:
+            if not (0.0 < float(self.alpha.get()) < 1.0):
+                raise ValueError
+        except ValueError:
+            messagebox.showwarning("Invalid Alpha", "Alpha must be a number between 0 and 1.", parent=self)
+            return False
+        if analysis == "ttest_1samp":
+            try:
+                float(self.null_mean.get())
+            except ValueError:
+                messagebox.showwarning("Invalid Value", "Null mean must be a number.", parent=self)
+                return False
+        return True
+
+    def apply(self):
+        analysis = _INFERENTIAL_TESTS[self.test_label.get()]
+        if analysis == "ttest_1samp":
+            inputs = {"data": self.x_var.get()}
+            options = {"null_mean": float(self.null_mean.get()), "alternative": self.alternative.get()}
+        elif analysis == "ttest_ind":
+            inputs = {"x": self.x_var.get(), "y": self.y_var.get()}
+            options = {"alternative": self.alternative.get(), "variance_assumption": self.variance.get()}
+        else:  # mann_whitney_u, wilcoxon_signed_rank
+            inputs = {"x": self.x_var.get(), "y": self.y_var.get()}
+            options = {}
+
+        self.result = {
+            "analysis": analysis,
+            "inputs": inputs,
+            "options": options,
+            "hypothesis": self.hypothesis.get().strip(),
+            "prediction": self.prediction.get().strip(),
+            "alpha": float(self.alpha.get()),
+        }
+
+
+class SelectPlanDialog(AnalysisDialog):
+    """Dialog to pick a committed pre-registration plan to run confirmatorily."""
+
+    def __init__(self, master, plans: list[dict]):
+        self._plans = plans
+        super().__init__(master, title="Run Confirmatory Test", variables=[])
+
+    def create_body(self, master: ttk.Frame):
+        ttk.Label(master, text="Select a pre-registered plan to reveal its result:").pack(anchor="w")
+        listbox_frame = ttk.Frame(master, borderwidth=1, relief="sunken")
+        self.listbox = tk.Listbox(listbox_frame, height=8, width=60)
+        for plan in self._plans:
+            label = f"[{plan['analysis']}] {plan.get('hypothesis', '')[:50]}"
+            self.listbox.insert(tk.END, label)
+        scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=self.listbox.yview)
+        self.listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.listbox.pack(side="left", fill="both", expand=True)
+        listbox_frame.pack(fill="both", expand=True, pady=5)
+
+    def validate(self) -> bool:
+        if not self.listbox.curselection():
+            messagebox.showwarning("No Selection", "Please select a plan.", parent=self)
+            return False
+        return True
+
+    def apply(self):
+        self.result = {"plan": self._plans[self.listbox.curselection()[0]]}
+
+
 class SimpleRegressionDialog(AnalysisDialog):
     """Dialog for Simple Linear Regression."""
 

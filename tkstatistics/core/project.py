@@ -51,6 +51,16 @@ class Project:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS analysis_plans (
+                id INTEGER PRIMARY KEY,
+                plan_id TEXT NOT NULL UNIQUE,
+                plan_hash TEXT NOT NULL,
+                dataset_id INTEGER,
+                plan_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                committed_at TEXT
+            );
             """
 
     def __init__(self, filepath: str | Path):
@@ -176,9 +186,70 @@ class Project:
         for spec_hash, result_json_str in cursor.fetchall():
             try:
                 artifact = json.loads(result_json_str)
-                p_value = artifact.get("result", {}).get("p_value")
+                result = artifact.get("result", {})
+                p_value = None
+                for key in ("p_value", "p_value_exact", "p_value_approx"):
+                    candidate = result.get(key) if isinstance(result, dict) else None
+                    if isinstance(candidate, (int, float)):
+                        p_value = candidate
+                        break
                 if isinstance(p_value, (int, float)) and math.isfinite(p_value):
                     results.append((spec_hash, float(p_value)))
             except (json.JSONDecodeError, AttributeError):
                 continue
         return results
+
+    # --- Pre-registration (analysis plans) ---
+
+    def commit_plan(self, plan: dict[str, Any]) -> str:
+        """Persist a plan as committed (immutable) and return its plan_id.
+
+        Re-committing an identical plan (same hash) is idempotent. Attempting to
+        store a different plan under an existing plan_id raises.
+        """
+        from . import plans as plans_mod
+
+        pid = plans_mod.plan_id(plan)
+        plan_hash = plans_mod.compute_plan_hash(plan)
+        dataset_name = plan.get("dataset")
+        dataset_id = self.get_dataset_id(dataset_name) if dataset_name else None
+        now = datetime.datetime.now().isoformat()
+        plan_json = json.dumps(plan, sort_keys=True)
+
+        existing = self.get_plan(pid)
+        if existing is not None:
+            if plans_mod.compute_plan_hash(existing) != plan_hash:
+                raise ValueError(f"A different plan already exists under id '{pid}'.")
+            return pid  # idempotent
+
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO analysis_plans (plan_id, plan_hash, dataset_id, plan_json, created_at, committed_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (pid, plan_hash, dataset_id, plan_json, now, now),
+            )
+        return pid
+
+    def get_plan(self, plan_id: str) -> dict[str, Any] | None:
+        """Fetch a committed plan dict by its plan_id, or None if absent."""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT plan_json FROM analysis_plans WHERE plan_id = ?", (plan_id,))
+        row = cursor.fetchone()
+        return json.loads(row[0]) if row else None
+
+    def list_plans(self, dataset_name: str | None = None) -> list[dict[str, Any]]:
+        """List committed plans, optionally filtered to one dataset."""
+        cursor = self.conn.cursor()
+        if dataset_name is not None:
+            dataset_id = self.get_dataset_id(dataset_name)
+            if dataset_id is None:
+                return []
+            cursor.execute(
+                "SELECT plan_json FROM analysis_plans WHERE dataset_id = ? ORDER BY id",
+                (dataset_id,),
+            )
+        else:
+            cursor.execute("SELECT plan_json FROM analysis_plans ORDER BY id")
+        return [json.loads(row[0]) for row in cursor.fetchall()]

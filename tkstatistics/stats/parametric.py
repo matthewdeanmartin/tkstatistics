@@ -4,108 +4,17 @@ import math
 import statistics
 from typing import Any
 
+from .distributions import regularized_incomplete_beta, student_t_cdf, student_t_ppf
+
+# Backwards-compatible private aliases. The special functions now live in
+# ``distributions``; these names are kept so existing tests/imports keep working.
+_regularized_incomplete_beta = regularized_incomplete_beta
+_student_t_cdf = student_t_cdf
+_student_t_ppf = student_t_ppf
+
 
 def _clean_numeric(data: list[float | int | None]) -> list[float]:
     return [float(x) for x in data if x is not None and math.isfinite(float(x))]
-
-
-def _betacf(a: float, b: float, x: float) -> float:
-    max_iter = 200
-    eps = 3.0e-12
-    fpmin = 1.0e-30
-
-    qab = a + b
-    qap = a + 1.0
-    qam = a - 1.0
-
-    c = 1.0
-    d = 1.0 - qab * x / qap
-    if abs(d) < fpmin:
-        d = fpmin
-    d = 1.0 / d
-    h = d
-
-    for m in range(1, max_iter + 1):
-        m2 = 2 * m
-
-        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
-        d = 1.0 + aa * d
-        if abs(d) < fpmin:
-            d = fpmin
-        c = 1.0 + aa / c
-        if abs(c) < fpmin:
-            c = fpmin
-        d = 1.0 / d
-        h *= d * c
-
-        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
-        d = 1.0 + aa * d
-        if abs(d) < fpmin:
-            d = fpmin
-        c = 1.0 + aa / c
-        if abs(c) < fpmin:
-            c = fpmin
-        d = 1.0 / d
-        delta = d * c
-        h *= delta
-
-        if abs(delta - 1.0) < eps:
-            break
-
-    return h
-
-
-def _regularized_incomplete_beta(a: float, b: float, x: float) -> float:
-    if x <= 0.0:
-        return 0.0
-    if x >= 1.0:
-        return 1.0
-
-    ln_beta = math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b)
-    front = math.exp(math.log(x) * a + math.log(1.0 - x) * b + ln_beta)
-
-    if x < (a + 1.0) / (a + b + 2.0):
-        return front * _betacf(a, b, x) / a
-    return 1.0 - (front * _betacf(b, a, 1.0 - x) / b)
-
-
-def _student_t_cdf(t: float, df: float) -> float:
-    if df <= 0:
-        raise ValueError("Degrees of freedom must be positive.")
-    if t == 0.0:
-        return 0.5
-
-    x = df / (df + t * t)
-    ibeta = _regularized_incomplete_beta(0.5 * df, 0.5, x)
-    if t > 0:
-        return 1.0 - 0.5 * ibeta
-    return 0.5 * ibeta
-
-
-def _student_t_ppf(prob: float, df: float) -> float:
-    if not (0.0 < prob < 1.0):
-        raise ValueError("Probability must be in (0, 1).")
-    if df <= 0:
-        raise ValueError("Degrees of freedom must be positive.")
-    if prob == 0.5:
-        return 0.0
-
-    if prob < 0.5:
-        return -_student_t_ppf(1.0 - prob, df)
-
-    lo, hi = 0.0, 1.0
-    while _student_t_cdf(hi, df) < prob:
-        hi *= 2.0
-        if hi > 1e6:
-            break
-
-    for _ in range(80):
-        mid = 0.5 * (lo + hi)
-        if _student_t_cdf(mid, df) < prob:
-            lo = mid
-        else:
-            hi = mid
-    return 0.5 * (lo + hi)
 
 
 def ttest_1samp(

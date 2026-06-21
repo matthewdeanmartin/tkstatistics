@@ -12,7 +12,7 @@ import json
 import sys
 from pathlib import Path
 
-from tkstatistics.core import specs
+from tkstatistics.core import render, specs
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,6 +34,22 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional path to write the JSON run artifact.",
     )
     parser.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="json",
+        help="Output format for stdout (default: json). The --output file is always JSON.",
+    )
+    parser.add_argument(
+        "--commit-plan",
+        metavar="PLAN_FILE",
+        help="Commit a pre-registration plan (JSON) to the project. Prints the plan_id.",
+    )
+    parser.add_argument(
+        "--audit",
+        metavar="DATASET",
+        help="Print a transparency report for DATASET (declared vs executed tests).",
+    )
+    parser.add_argument(
         "--gui",
         action="store_true",
         help="Force launch the GUI (default action if no other flags are given).",
@@ -43,6 +59,42 @@ def main(argv: list[str] | None = None) -> int:
         argv = sys.argv[1:]
 
     args = parser.parse_args(argv)
+
+    if args.commit_plan:
+        if not args.project:
+            print("Error: --project is required when using --commit-plan.", file=sys.stderr)
+            return 2
+        from tkstatistics.core.project import Project
+
+        try:
+            plan = json.loads(Path(args.commit_plan).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"Error reading plan file: {exc}", file=sys.stderr)
+            return 1
+        project = Project(Path(args.project))
+        try:
+            plan_id = project.commit_plan(plan)
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 1
+        finally:
+            project.close()
+        print(plan_id)
+        return 0
+
+    if args.audit:
+        if not args.project:
+            print("Error: --project is required when using --audit.", file=sys.stderr)
+            return 2
+        from tkstatistics.core.project import Project
+
+        project = Project(Path(args.project))
+        try:
+            report = specs.audit_dataset(project, args.audit)
+        finally:
+            project.close()
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0
 
     if args.run:
         if not args.project:
@@ -67,7 +119,10 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Error writing output artifact: {exc}", file=sys.stderr)
                 return 1
 
-        print(artifact_json)
+        if args.format == "text":
+            print(render.render_artifact(artifact))
+        else:
+            print(artifact_json)
         return 0
     else:
         # Default action is to launch the GUI

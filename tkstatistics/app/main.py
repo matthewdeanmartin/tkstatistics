@@ -9,13 +9,26 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any
 
-from tkstatistics.core import specs
+from tkstatistics.core import plans, render, specs
 from tkstatistics.core.dataset import TabularData
 from tkstatistics.core.io_csv import import_csv
 from tkstatistics.core.project import Project
 
+from .chart_window import ChartWindow
 from .demo import create_demo_dataset
-from .dialogs import DescriptivesDialog, MultipleRegressionDialog, SimpleRegressionDialog
+from .dialogs import (
+    DeclareHypothesisDialog,
+    DescriptivesDialog,
+    FisherExactDialog,
+    HistogramDialog,
+    MultipleRegressionDialog,
+    OneSampleTTestDialog,
+    ScatterDialog,
+    SelectPlanDialog,
+    SimpleRegressionDialog,
+    SingleVariableDialog,
+    TwoSampleDialog,
+)
 from .grid import DataGrid
 from .output_viewer import OutputViewer
 from .project_explorer import ProjectExplorer
@@ -52,6 +65,7 @@ class App(tk.Tk):
         # Wire up the callbacks from the explorer to methods in this class
         self.project_explorer.on_select_dataset = self._on_dataset_selected
         self.project_explorer.on_select_analysis = self._on_analysis_selected
+        self.project_explorer.on_select_plan = self._on_plan_selected
         main_pane.add(self.project_explorer, weight=1)
 
         right_pane = ttk.PanedWindow(main_pane, orient=tk.VERTICAL)
@@ -105,12 +119,42 @@ class App(tk.Tk):
         """Callback from ProjectExplorer when a past analysis is clicked."""
         self._execute_and_display_spec(spec)
 
+    def _on_plan_selected(self, plan: dict[str, Any]):
+        """Callback from ProjectExplorer when a pre-registered plan is clicked."""
+        lines = [
+            "Pre-registered Plan",
+            "",
+            f"  Plan id     : {plans.plan_id(plan)}",
+            f"  Hypothesis  : {plan.get('hypothesis', '')}",
+        ]
+        if plan.get("prediction"):
+            lines.append(f"  Prediction  : {plan['prediction']}")
+        lines.extend([
+            f"  Test        : {plan.get('analysis', '')}",
+            f"  Dataset     : {plan.get('dataset', '')}",
+            f"  Inputs      : {plan.get('inputs', {})}",
+            f"  Decision opts: {plan.get('decision_options', {})}",
+            f"  Alpha       : {plan.get('alpha')}",
+            "",
+            "  Use Analyze ▸ Run Confirmatory Test... to reveal the result.",
+        ])
+        self.output_viewer.add_result(
+            f"Plan: {plan.get('analysis', '')}",
+            "\n".join(lines),
+            result_key=f"plan::{plans.plan_id(plan)}",
+        )
+
     def _execute_and_display_spec(self, spec: dict[str, Any]):
-        """Central function to run an analysis from a spec and display its results."""
+        """Central function to run an analysis from a spec and display its results.
+
+        Runs through the same ``run_spec_payload`` pipeline the CLI uses, so the
+        GUI gets reproducible artifacts, multiplicity correction, and the
+        confirmatory pre-registration gate for free. The persisted artifact also
+        feeds the audit report.
+        """
         if not self.project:
             return
 
-        # 1. Ensure the correct dataset is active
         dataset_name = spec.get("dataset")
         if not dataset_name or not self.active_dataset or self.active_dataset.name != dataset_name:
             self._load_dataset_into_grid(dataset_name)
@@ -118,52 +162,63 @@ class App(tk.Tk):
             messagebox.showerror("Error", f"Dataset '{dataset_name}' for this analysis could not be loaded.")
             return
 
-        # 2. Get the analysis function and prepare arguments
         try:
-            analysis_name = spec["analysis"]
-            analysis_func = specs.ANALYSIS_DISPATCHER[analysis_name]
-
-            # Prepare keyword arguments from the spec's 'inputs'
-            kwargs = {}
-            for role, var_name_or_value in spec.get("inputs", {}).items():
-                if isinstance(var_name_or_value, str) and var_name_or_value in self.active_dataset.column_names:
-                    kwargs[role] = self.active_dataset.get_column(var_name_or_value)
-                elif isinstance(var_name_or_value, list) and var_name_or_value and all(isinstance(v, str) and v in self.active_dataset.column_names for v in var_name_or_value):
-                    kwargs[role] = [self.active_dataset.get_column(v) for v in var_name_or_value]
-                else:
-                    kwargs[role] = var_name_or_value
-
-            kwargs.update(spec.get("options", {}))
-
-            # For multiple regression, the `ols` function expects rows, not columns
-            if analysis_name == "ols":
-                kwargs["X"] = list(zip(*kwargs["X"], strict=False))
-
-            # 3. Run the analysis
-            results = analysis_func(**kwargs)
-
-            # 4. Format and display results
-            if analysis_name == "describe":
-                var_name = spec["inputs"]["data"]
-                output_text = self._format_descriptives_results(var_name, results)
-                title = f"Descriptives: {var_name}"
-            elif analysis_name == "stdlib_simple_regression":
-                dep_var, ind_var = spec["inputs"]["y"], spec["inputs"]["x"]
-                output_text = self._format_regression_results("Simple Linear Regression (stdlib)", dep_var, [ind_var], results)
-                title = f"Simple Regression: {dep_var} on {ind_var}"
-            elif analysis_name == "ols":
-                dep_var, pred_vars = spec["inputs"]["y"], spec["inputs"]["X"]
-                output_text = self._format_regression_results("Multiple Linear Regression (OLS)", dep_var, pred_vars, results)
-                title = f"Multiple Regression: {dep_var}"
-            else:
-                title = "Analysis Result"
-                output_text = str(results)  # Fallback formatting
-
-            result_key = specs.compute_spec_hash(spec)
-            self.output_viewer.add_result(title, output_text, result_key=result_key)
-
+            artifact = specs.run_spec_payload(spec, self.project)
+        except specs.ConfirmatoryGateError as exc:
+            messagebox.showwarning("Confirmatory Run Refused", str(exc), parent=self)
+            return
         except Exception as e:
-            messagebox.showerror("Analysis Error", f"Failed to re-run analysis:\n{e}", parent=self)
+            messagebox.showerror("Analysis Error", f"Failed to run analysis:\n{e}", parent=self)
+            return
+
+        # Persist the run so multiplicity pooling and the audit report see it.
+        self.project.save_run_artifact(artifact)
+
+        result = artifact.get("result", {})
+        output_text = self._format_artifact(spec, artifact)
+        title = self._analysis_title(spec, result)
+
+        result_key = artifact.get("spec_hash") or specs.compute_spec_hash(spec)
+        self.output_viewer.add_result(title, output_text, result_key=result_key)
+
+    def _analysis_title(self, spec: dict[str, Any], result: dict[str, Any]) -> str:
+        """Build a short history-tree title for an analysis."""
+        analysis_name = spec.get("analysis", "Analysis")
+        inputs = spec.get("inputs", {})
+        if analysis_name == "describe":
+            return f"Descriptives: {inputs.get('data', '')}"
+        if analysis_name == "stdlib_simple_regression":
+            return f"Simple Regression: {inputs.get('y', '')} on {inputs.get('x', '')}"
+        if analysis_name == "ols":
+            return f"Multiple Regression: {inputs.get('y', '')}"
+        if isinstance(result, dict) and result.get("test"):
+            return str(result["test"])
+        return analysis_name
+
+    def _format_artifact(self, spec: dict[str, Any], artifact: dict[str, Any]) -> str:
+        """Render an artifact for the output viewer.
+
+        Regression keeps its rich coefficient table; everything else uses the
+        shared ``render_artifact`` text so tests, descriptives, pre-registration,
+        and multiplicity all display consistently with the CLI.
+        """
+        analysis_name = spec.get("analysis")
+        result = artifact.get("result", {})
+
+        if analysis_name in ("stdlib_simple_regression", "ols") and isinstance(result, dict) and "error" not in result:
+            inputs = spec.get("inputs", {})
+            if analysis_name == "stdlib_simple_regression":
+                body = self._format_regression_results(
+                    "Simple Linear Regression (stdlib)", inputs.get("y", ""), [inputs.get("x", "")], result
+                )
+            else:
+                body = self._format_regression_results(
+                    "Multiple Linear Regression (OLS)", inputs.get("y", ""), inputs.get("X", []), result
+                )
+            trailer = render.render_artifact_trailer(artifact)
+            return body + ("\n\n" + trailer if trailer else "")
+
+        return render.render_artifact(artifact)
 
     def _run_descriptives(self):
         if not self.active_dataset:
@@ -209,6 +264,243 @@ class App(tk.Tk):
         self.project_explorer.populate(self.project)
         self._execute_and_display_spec(spec)  # Use the central executor
 
+    # --- Hypothesis tests (exploratory) ---
+
+    def _save_and_run(self, spec: dict[str, Any]):
+        """Persist the spec to the project explorer and run it."""
+        self.project.save_analysis(spec)
+        self.project_explorer.populate(self.project)
+        self._execute_and_display_spec(spec)
+
+    def _run_ttest_1samp(self):
+        if not self.active_dataset:
+            return
+        dialog = OneSampleTTestDialog(self, self.active_dataset.column_names)
+        if not dialog.result:
+            return
+        spec = specs.create_spec(
+            "ttest_1samp", self.active_dataset.name,
+            inputs={"data": dialog.result["variable"]},
+            options={"null_mean": dialog.result["null_mean"], "alternative": dialog.result["alternative"]},
+        )
+        self._save_and_run(spec)
+
+    def _run_ttest_ind(self):
+        if not self.active_dataset:
+            return
+        dialog = TwoSampleDialog(self, self.active_dataset.column_names, "Independent t-test", show_variance=True)
+        if not dialog.result:
+            return
+        spec = specs.create_spec(
+            "ttest_ind", self.active_dataset.name,
+            inputs={"x": dialog.result["x"], "y": dialog.result["y"]},
+            options={
+                "alternative": dialog.result["alternative"],
+                "variance_assumption": dialog.result["variance_assumption"],
+            },
+        )
+        self._save_and_run(spec)
+
+    def _run_mann_whitney(self):
+        if not self.active_dataset:
+            return
+        dialog = TwoSampleDialog(self, self.active_dataset.column_names, "Mann-Whitney U")
+        if not dialog.result:
+            return
+        spec = specs.create_spec(
+            "mann_whitney_u", self.active_dataset.name,
+            inputs={"x": dialog.result["x"], "y": dialog.result["y"]}, options={},
+        )
+        self._save_and_run(spec)
+
+    def _run_wilcoxon(self):
+        if not self.active_dataset:
+            return
+        dialog = TwoSampleDialog(self, self.active_dataset.column_names, "Wilcoxon Signed-Rank")
+        if not dialog.result:
+            return
+        spec = specs.create_spec(
+            "wilcoxon_signed_rank", self.active_dataset.name,
+            inputs={"x": dialog.result["x"], "y": dialog.result["y"]}, options={},
+        )
+        self._save_and_run(spec)
+
+    def _run_fisher_exact(self):
+        if not self.active_dataset:
+            return
+        dialog = FisherExactDialog(self, self.active_dataset.column_names)
+        if not dialog.result:
+            return
+        spec = specs.create_spec(
+            "fisher_exact_2x2", self.active_dataset.name,
+            inputs={"table": dialog.result["table"]}, options={},
+        )
+        self._save_and_run(spec)
+
+    # --- Pre-registration / confirmatory workflow ---
+
+    def _declare_hypothesis(self):
+        if not self.active_dataset:
+            return
+        dialog = DeclareHypothesisDialog(self, self.active_dataset.column_names)
+        if not dialog.result:
+            return
+        r = dialog.result
+        plan = plans.build_plan(
+            analysis=r["analysis"],
+            dataset=self.active_dataset.name,
+            inputs=r["inputs"],
+            options=r["options"],
+            hypothesis=r["hypothesis"],
+            prediction=r["prediction"],
+            alpha=r["alpha"],
+        )
+        try:
+            plan_id = self.project.commit_plan(plan)
+        except ValueError as exc:
+            messagebox.showerror("Could Not Register", str(exc), parent=self)
+            return
+        self.project_explorer.populate(self.project)
+        messagebox.showinfo(
+            "Hypothesis Pre-registered",
+            f"Plan committed (id {plan_id}).\n\nThe result is sealed. Use "
+            "'Run Confirmatory Test...' to reveal it.",
+            parent=self,
+        )
+
+    def _run_confirmatory(self):
+        if not self.project:
+            return
+        dataset_name = self.active_dataset.name if self.active_dataset else None
+        committed = self.project.list_plans(dataset_name)
+        if not committed:
+            messagebox.showinfo(
+                "No Plans",
+                "No pre-registered plans for this dataset yet.\nUse 'Pre-register Hypothesis...' first.",
+                parent=self,
+            )
+            return
+        dialog = SelectPlanDialog(self, committed)
+        if not dialog.result:
+            return
+
+        plan = dialog.result["plan"]
+        spec = specs.create_spec(
+            plan["analysis"],
+            plan["dataset"],
+            inputs=plan["inputs"],
+            options=plan["decision_options"],
+            mode="confirmatory",
+            plan_id=plans.plan_id(plan),
+        )
+        self._save_and_run(spec)
+
+    def _show_audit(self):
+        if not self.active_dataset:
+            return
+        report = specs.audit_dataset(self.project, self.active_dataset.name)
+        self.output_viewer.add_result(
+            f"Audit: {self.active_dataset.name}",
+            self._format_audit(report),
+            result_key=f"audit::{self.active_dataset.name}",
+        )
+
+    def _format_audit(self, report: dict[str, Any]) -> str:
+        lines = [
+            f"Transparency Audit — dataset '{report['dataset']}'",
+            "",
+            f"  Hypotheses pre-registered     : {report['num_plans_declared']}",
+            f"  Analyses executed             : {report['num_runs_executed']}",
+            f"  Inferential tests run         : {report['num_inferential_runs']}",
+            f"  Confirmatory runs             : {report['num_confirmatory_runs']}",
+            f"  Exploratory inferential runs  : {report['num_exploratory_inferential_runs']}",
+        ]
+        if report["unused_plan_ids"]:
+            lines.append(f"  Unused plans                  : {', '.join(report['unused_plan_ids'])}")
+        if report["warnings"]:
+            lines.append("")
+            lines.append("  ⚠ Warnings:")
+            for warning in report["warnings"]:
+                lines.append(f"    - {warning}")
+        else:
+            lines.append("")
+            lines.append("  No transparency concerns detected.")
+        return "\n".join(lines)
+
+    def _run_histogram(self):
+        if not self.active_dataset:
+            return
+        dialog = HistogramDialog(self, self.active_dataset.column_names)
+        selection = dialog.result
+        if not selection:
+            return
+
+        from tkstatistics.viz import build_histogram
+        from tkstatistics.viz.histogram import HistogramSpec
+
+        var_name = selection["variable"]
+        column = self.active_dataset.get_column(var_name)
+        spec = HistogramSpec(
+            values=column,
+            bins=selection["bins"],
+            title=f"Histogram of {var_name}",
+            x_label=var_name,
+        )
+        scene = build_histogram(spec)
+        ChartWindow(self, scene, title=f"Histogram: {var_name}")
+
+    def _run_boxplot(self):
+        if not self.active_dataset:
+            return
+        dialog = SingleVariableDialog(self, self.active_dataset.column_names, title="Box Plot")
+        if not dialog.result:
+            return
+
+        from tkstatistics.viz import BoxplotSpec, build_boxplot
+
+        var_name = dialog.result["variable"]
+        column = self.active_dataset.get_column(var_name)
+        try:
+            scene = build_boxplot(BoxplotSpec(values=column, title=f"Box Plot of {var_name}", y_label=var_name))
+        except ValueError as exc:
+            messagebox.showwarning("Cannot Plot", str(exc), parent=self)
+            return
+        ChartWindow(self, scene, title=f"Box Plot: {var_name}")
+
+    def _run_scatter(self):
+        if not self.active_dataset:
+            return
+        dialog = ScatterDialog(self, self.active_dataset.column_names)
+        if not dialog.result:
+            return
+
+        from tkstatistics.viz import ScatterSpec, build_scatter
+
+        x_name, y_name = dialog.result["x"], dialog.result["y"]
+        spec = ScatterSpec(
+            x=self.active_dataset.get_column(x_name),
+            y=self.active_dataset.get_column(y_name),
+            title=f"{y_name} vs {x_name}",
+            x_label=x_name,
+            y_label=y_name,
+            fit_line=dialog.result["fit_line"],
+        )
+        ChartWindow(self, build_scatter(spec), title=f"Scatter: {y_name} vs {x_name}")
+
+    def _run_qqplot(self):
+        if not self.active_dataset:
+            return
+        dialog = SingleVariableDialog(self, self.active_dataset.column_names, title="Normal Q-Q Plot")
+        if not dialog.result:
+            return
+
+        from tkstatistics.viz import QQSpec, build_qqplot
+
+        var_name = dialog.result["variable"]
+        column = self.active_dataset.get_column(var_name)
+        scene = build_qqplot(QQSpec(values=column, title=f"Normal Q-Q Plot of {var_name}"))
+        ChartWindow(self, scene, title=f"Q-Q Plot: {var_name}")
+
     # --- Boilerplate methods for file IO, menus, and state management (mostly unchanged) ---
     def _create_menus(self):
         self.menu_bar = tk.Menu(self)
@@ -231,10 +523,25 @@ class App(tk.Tk):
         analyze_menu.add_cascade(label="Regression", menu=reg_menu)
         reg_menu.add_command(label="Simple Linear (stdlib)...", command=self._run_simple_regression)
         reg_menu.add_command(label="Multiple Linear (OLS)...", command=self._run_multiple_regression)
+        analyze_menu.add_separator()
+        tests_menu = tk.Menu(analyze_menu, tearoff=0)
+        analyze_menu.add_cascade(label="Hypothesis Tests", menu=tests_menu)
+        tests_menu.add_command(label="One-Sample t-test...", command=self._run_ttest_1samp)
+        tests_menu.add_command(label="Independent t-test...", command=self._run_ttest_ind)
+        tests_menu.add_command(label="Mann-Whitney U...", command=self._run_mann_whitney)
+        tests_menu.add_command(label="Wilcoxon Signed-Rank...", command=self._run_wilcoxon)
+        tests_menu.add_command(label="Fisher's Exact (2x2)...", command=self._run_fisher_exact)
+        analyze_menu.add_separator()
+        analyze_menu.add_command(label="Pre-register Hypothesis...", command=self._declare_hypothesis)
+        analyze_menu.add_command(label="Run Confirmatory Test...", command=self._run_confirmatory)
+        analyze_menu.add_command(label="Audit Report...", command=self._show_audit)
         self.analyze_menu = analyze_menu
         graphs_menu = tk.Menu(self.menu_bar, tearoff=0)
         self.menu_bar.add_cascade(label="Graphs", menu=graphs_menu)
-        graphs_menu.add_command(label="Histogram...")
+        graphs_menu.add_command(label="Histogram...", command=self._run_histogram)
+        graphs_menu.add_command(label="Box Plot...", command=self._run_boxplot)
+        graphs_menu.add_command(label="Scatter Plot...", command=self._run_scatter)
+        graphs_menu.add_command(label="Normal Q-Q Plot...", command=self._run_qqplot)
         self.graphs_menu = graphs_menu
 
     def _new_project(self):
@@ -323,18 +630,28 @@ class App(tk.Tk):
     def _format_regression_results(self, title: str, dep_var: str, pred_vars: list[str], results: dict[str, Any]) -> str:
         if "error" in results:
             return f"{title}\n\nError: {results['error']}\nDetails: {results.get('details', 'N/A')}"
+
+        def cell(value: Any, spec: str = ">12.4f") -> str:
+            if value is None:
+                return f"{'—':>12}"
+            return f"{value:{spec}}"
+
         lines = [
             f"{title}",
             f"Dependent Variable: {dep_var}\n",
             f"R-squared: {results['r_squared']:.4f}",
             f"Adjusted R-squared: {results['adj_r_squared']:.4f}",
             f"Observations: {results['n']}\n",
-            f"{'Variable':<15} {'Coefficient':>12} {'Std. Error':>12} {'t-statistic':>12}",
-            "-" * 53,
+            f"{'Variable':<15} {'Coefficient':>12} {'Std. Error':>12} {'t-stat':>12} {'p-value':>12}",
+            "-" * 66,
         ]
-        lines.append(f"{'(Intercept)':<15} {results['coefficients'][0]:>12.4f} {results['std_errors'][0]:>12.4f} {results['t_statistics'][0]:>12.3f}")
-        for i, var_name in enumerate(pred_vars):
-            lines.append(f"{var_name:<15} {results['coefficients'][i + 1]:>12.4f} {results['std_errors'][i + 1]:>12.4f} {results['t_statistics'][i + 1]:>12.3f}")
+        p_values = results.get("p_values") or [None] * len(results["coefficients"])
+        labels = ["(Intercept)", *pred_vars]
+        for i, var_name in enumerate(labels):
+            lines.append(
+                f"{var_name:<15} {cell(results['coefficients'][i])} {cell(results['std_errors'][i])} "
+                f"{cell(results['t_statistics'][i], '>12.3f')} {cell(p_values[i])}"
+            )
         lines.append(f"\n{results['notes']}")
         return "\n".join(lines)
 

@@ -21,6 +21,7 @@ class ProjectExplorer(ttk.Frame):
         # Callbacks for the main app to hook into
         self.on_select_dataset: Callable[[str], None] | None = None
         self.on_select_analysis: Callable[[dict[str, Any]], None] | None = None
+        self.on_select_plan: Callable[[dict[str, Any]], None] | None = None
 
         ttk.Label(self, text="Project Explorer", anchor="w").pack(fill="x", padx=2, pady=2)
 
@@ -29,10 +30,12 @@ class ProjectExplorer(ttk.Frame):
 
         # Top-level nodes
         self.datasets_node = self.tree.insert("", "end", text="Datasets", open=True)
+        self.plans_node = self.tree.insert("", "end", text="Pre-registered Plans", open=True)
         self.analyses_node = self.tree.insert("", "end", text="Analyses", open=True)
 
-        # Maps treeview item IDs to the full analysis spec dictionary
+        # Maps treeview item IDs to the full spec / plan dictionary
         self.analysis_map: dict[str, dict[str, Any]] = {}
+        self.plan_map: dict[str, dict[str, Any]] = {}
 
         self.tree.bind("<<TreeviewSelect>>", self._on_select)
 
@@ -56,14 +59,23 @@ class ProjectExplorer(ttk.Frame):
             if spec:
                 self.on_select_analysis(spec)
 
+        # If a plan was clicked, invoke the plan callback with its plan dict
+        elif parent == self.plans_node and self.on_select_plan:
+            plan = self.plan_map.get(selected_item_id)
+            if plan:
+                self.on_select_plan(plan)
+
     def populate(self, project: Project | None):
         """Clears and repopulates the tree from a Project object."""
         # Clear existing items
         for item in self.tree.get_children(self.datasets_node):
             self.tree.delete(item)
+        for item in self.tree.get_children(self.plans_node):
+            self.tree.delete(item)
         for item in self.tree.get_children(self.analyses_node):
             self.tree.delete(item)
         self.analysis_map.clear()
+        self.plan_map.clear()
 
         if not project:
             return
@@ -71,6 +83,13 @@ class ProjectExplorer(ttk.Frame):
         # Populate datasets
         for name in project.list_datasets():
             self.tree.insert(self.datasets_node, "end", text=name)
+
+        # Populate committed pre-registration plans
+        for plan in project.list_plans():
+            hypothesis = plan.get("hypothesis", "")
+            label = f"{plan.get('analysis', '?')}: {hypothesis[:40]}"
+            item_id = self.tree.insert(self.plans_node, "end", text=label)
+            self.plan_map[item_id] = plan
 
         # Populate analyses, storing the spec for each one
         for analysis_spec in project.list_analyses():

@@ -12,6 +12,44 @@ import statistics
 from typing import Any
 
 from . import linalg_small
+from .distributions import student_t_cdf, student_t_ppf
+
+
+def _coef_inference(
+    coeffs: list[float],
+    se_coeffs: list[float | None],
+    df_residual: int,
+    conf_level: float = 0.95,
+) -> tuple[list[float | None], list[float | None], list[list[float] | None]]:
+    """Compute two-sided p-values, t-statistics, and CIs for coefficients.
+
+    Returns ``(t_statistics, p_values, conf_intervals)``. Entries are ``None``
+    when the standard error is unavailable or the residual dof is non-positive.
+    """
+    t_stats: list[float | None] = []
+    p_values: list[float | None] = []
+    conf_intervals: list[list[float] | None] = []
+
+    t_crit = None
+    if df_residual > 0:
+        t_crit = student_t_ppf(1.0 - (1.0 - conf_level) / 2.0, df_residual)
+
+    for coef, se in zip(coeffs, se_coeffs, strict=False):
+        if se is None or se <= 0.0 or not math.isfinite(se) or df_residual <= 0:
+            t_stats.append(None)
+            p_values.append(None)
+            conf_intervals.append(None)
+            continue
+        t_stat = coef / se
+        cdf = student_t_cdf(t_stat, df_residual)
+        p_value = 2.0 * min(cdf, 1.0 - cdf)
+        p_value = max(0.0, min(1.0, p_value))
+        margin = t_crit * se if t_crit is not None else None
+        t_stats.append(t_stat)
+        p_values.append(p_value)
+        conf_intervals.append([coef - margin, coef + margin] if margin is not None else None)
+
+    return t_stats, p_values, conf_intervals
 
 
 def stdlib_simple_regression(x: list[float], y: list[float]) -> dict[str, Any]:
@@ -59,22 +97,27 @@ def stdlib_simple_regression(x: list[float], y: list[float]) -> dict[str, Any]:
 
         se_intercept = math.sqrt(mse * (1 / n + x_mean**2 / ss_x)) if ss_x > 1e-12 else float("inf")
         se_slope = math.sqrt(mse / ss_x) if ss_x > 1e-12 else float("inf")
-
-        t_intercept = intercept / se_intercept if se_intercept not in (0, float("inf")) else 0.0
-        t_slope = slope / se_slope if se_slope not in (0, float("inf")) else 0.0
     else:
-        se_intercept, se_slope, t_intercept, t_slope = (None, None, None, None)
+        se_intercept, se_slope = (None, None)
+
+    df_residual = n - p
+    t_stats, p_values, conf_intervals = _coef_inference(
+        [intercept, slope], [se_intercept, se_slope], df_residual
+    )
 
     return {
         "coefficients": [intercept, slope],
         "std_errors": [se_intercept, se_slope],
-        "t_statistics": [t_intercept, t_slope],
+        "t_statistics": t_stats,
+        "p_values": p_values,
+        "conf_level": 0.95,
+        "confidence_intervals": conf_intervals,
         "r_squared": r_squared,
         "adj_r_squared": adj_r_squared,
         "n": n,
         "df_model": p - 1,
-        "df_residual": n - p,
-        "notes": "Uses statistics.linear_regression. P-values require a t-distribution CDF.",
+        "df_residual": df_residual,
+        "notes": "Uses statistics.linear_regression with a from-scratch t-distribution for inference.",
     }
 
 
@@ -135,19 +178,22 @@ def ols(X: list[list[float]], y: list[float], add_intercept: bool = True) -> dic
     adj_r_squared = 1 - (1 - r_squared) * (n - 1) / (n - p) if (n - p) > 0 else 0.0
 
     # Standard errors and t-statistics
-    mse = ss_residual / (n - p)  # Mean Squared Error
+    df_residual = n - p
+    mse = ss_residual / df_residual  # Mean Squared Error
     se_coeffs = [math.sqrt(mse * XTX_inv[i][i]) for i in range(p)]
-    # t_stats = [coeffs[i] / se_coeffs[i] if se_coeffs[i] > 0 else 0.0 for i in range(p)]
-    t_stats = [coeffs[i] / se_coeffs[i] if se_coeffs[i] > 1e-12 else 0.0 for i in range(p)]
+    t_stats, p_values, conf_intervals = _coef_inference(coeffs, se_coeffs, df_residual)
 
     return {
         "coefficients": coeffs,
         "std_errors": se_coeffs,
         "t_statistics": t_stats,
+        "p_values": p_values,
+        "conf_level": 0.95,
+        "confidence_intervals": conf_intervals,
         "r_squared": r_squared,
         "adj_r_squared": adj_r_squared,
         "n": n,
         "df_model": p - 1,
-        "df_residual": n - p,
-        "notes": "P-values and confidence intervals require a t-distribution CDF, not available in stdlib.",
+        "df_residual": df_residual,
+        "notes": "Coefficient inference uses a from-scratch Student-t distribution (stdlib only).",
     }

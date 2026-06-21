@@ -11,6 +11,25 @@ from typing import Any, Union
 Numeric = Union[int, float]
 
 
+def _clean_numeric(data: list[Numeric | None]) -> list[float]:
+    """Drop None and non-finite values, coercing the rest to float."""
+    return [float(x) for x in data if x is not None and math.isfinite(float(x))]
+
+
+def _clean_pairs(x: list[Numeric | None], y: list[Numeric | None]) -> tuple[list[float], list[float]]:
+    """Keep only pairs where both entries are present and finite."""
+    clean_x: list[float] = []
+    clean_y: list[float] = []
+    for xi, yi in zip(x, y, strict=False):
+        if xi is None or yi is None:
+            continue
+        fx, fy = float(xi), float(yi)
+        if math.isfinite(fx) and math.isfinite(fy):
+            clean_x.append(fx)
+            clean_y.append(fy)
+    return clean_x, clean_y
+
+
 def _rank_data(data: list[Numeric], tie_method: str = "average") -> list[float]:
     """Helper to rank data, handling ties."""
     sorted_pairs = sorted(enumerate(data), key=lambda x: x[1])
@@ -41,9 +60,11 @@ def mann_whitney_u(x: list[Numeric], y: list[Numeric]) -> dict[str, Any]:
     Returns U statistic, effect size (rank-biserial correlation),
     and an approximate p-value using normal approximation.
     """
+    x = _clean_numeric(x)
+    y = _clean_numeric(y)
     n1, n2 = len(x), len(y)
     if n1 == 0 or n2 == 0:
-        return {"error": "Input samples cannot be empty."}
+        return {"error": "Input samples cannot be empty (after removing missing/non-finite values)."}
 
     combined = x + y
     ranks = _rank_data(combined)
@@ -87,6 +108,7 @@ def wilcoxon_signed_rank(x: list[Numeric], y: list[Numeric]) -> dict[str, Any]:
     if len(x) != len(y):
         return {"error": "Paired samples must have the same length."}
 
+    x, y = _clean_pairs(x, y)
     diffs = [xi - yi for xi, yi in zip(x, y, strict=False) if xi != yi]
     if not diffs:
         return {

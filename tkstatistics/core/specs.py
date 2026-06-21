@@ -20,7 +20,12 @@ from tkstatistics.__about__ import __version__
 from tkstatistics.stats import descriptives, nonparametric, parametric, regression
 from tkstatistics.stats.multiplicity import holm_bonferroni_correction
 
+from . import plans as plans_mod
 from .project import Project
+
+
+class ConfirmatoryGateError(Exception):
+    """Raised when a confirmatory run is refused for lack of a valid plan."""
 
 # This dispatcher map is crucial for the headless runner.
 # It connects the string name in the JSON spec to the actual Python function.
@@ -41,6 +46,32 @@ ANALYSIS_DISPATCHER: dict[str, Callable[..., dict[str, Any]]] = {
 }
 
 SUPPORTED_SPEC_VERSION = 1
+
+# Analyses that yield an inferential p-value. Only these may be run in
+# confirmatory mode (they are the ones a pre-registration can gate).
+INFERENTIAL_ANALYSES: set[str] = {
+    "mann_whitney_u",
+    "wilcoxon_signed_rank",
+    "fisher_exact_2x2",
+    "ttest_1samp",
+    "ttest_ind",
+}
+
+
+def extract_p_value(result: dict[str, Any]) -> float | None:
+    """Pull the relevant p-value out of a result dict, whatever it's named.
+
+    Tests in this package report ``p_value``, ``p_value_approx`` (normal
+    approximation) or ``p_value_exact`` (Fisher). The gate and multiplicity
+    pooling treat them uniformly.
+    """
+    if not isinstance(result, dict):
+        return None
+    for key in ("p_value", "p_value_exact", "p_value_approx"):
+        value = result.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+    return None
 
 _ANALYSIS_INPUT_RULES: dict[str, dict[str, str]] = {
     "describe": {"data": "column"},
@@ -289,13 +320,63 @@ def _prepare_analysis_kwargs(spec: dict[str, Any], dataset: Any) -> dict[str, An
     return kwargs
 
 
+def _check_confirmatory_gate(normalized_spec: dict[str, Any], project: Project) -> tuple[dict[str, Any] | None, list[str]]:
+    """Enforce the pre-registration gate for confirmatory runs.
+
+    Returns ``(plan, deviations)``. Raises ``ConfirmatoryGateError`` if the run
+    must be refused (no plan, plan not found, or non-inferential analysis).
+    """
+    analysis_name = normalized_spec["analysis"]
+
+    if analysis_name not in INFERENTIAL_ANALYSES:
+        raise ConfirmatoryGateError(
+            f"Analysis '{analysis_name}' produces no p-value and cannot be run in confirmatory mode. "
+            "Use exploratory mode for descriptive/model-fitting analyses."
+        )
+
+    plan_id = normalized_spec.get("plan_id")
+    if not plan_id:
+        raise ConfirmatoryGateError(
+            "Confirmatory mode requires a pre-registered plan. Declare a hypothesis and commit a plan "
+            "before running the test (set 'plan_id' on the spec)."
+        )
+
+    plan = project.get_plan(plan_id)
+    if plan is None:
+        raise ConfirmatoryGateError(
+            f"No committed pre-registration plan found for plan_id '{plan_id}'. "
+            "A confirmatory p-value cannot be revealed without a prior committed plan."
+        )
+
+    deviations = plans_mod.spec_matches_plan(normalized_spec, plan)
+    return plan, deviations
+
+
 def run_spec_payload(spec: dict[str, Any], project: Project) -> dict[str, Any]:
-    """Executes a validated spec and returns a reproducible run artifact."""
+    """Executes a validated spec and returns a reproducible run artifact.
+
+    In confirmatory mode the run is gated by a committed pre-registration plan:
+    the inferential p-value is only computed and revealed when a matching plan
+    exists. This is the anti-p-hacking mechanism.
+    """
     normalized_spec = validate_spec(spec, project)
     analysis_name = normalized_spec["analysis"]
     analysis_func = ANALYSIS_DISPATCHER[analysis_name]
     dataset = project.load_dataset(normalized_spec["dataset"])
     kwargs = _prepare_analysis_kwargs(normalized_spec, dataset)
+
+    warnings: list[str] = []
+    plan: dict[str, Any] | None = None
+    deviations: list[str] = []
+    is_confirmatory = normalized_spec.get("mode") == "confirmatory"
+
+    if is_confirmatory:
+        # Raises ConfirmatoryGateError → caller (run_spec/CLI) reports refusal.
+        plan, deviations = _check_confirmatory_gate(normalized_spec, project)
+        if deviations:
+            warnings.append(
+                "Confirmatory run DEVIATES from its pre-registered plan: " + "; ".join(deviations)
+            )
 
     random_state = random.getstate()
     try:
@@ -304,20 +385,30 @@ def run_spec_payload(spec: dict[str, Any], project: Project) -> dict[str, Any]:
     finally:
         random.setstate(random_state)
 
-    artifact = {
+    artifact: dict[str, Any] = {
         "spec": normalized_spec,
         "spec_hash": compute_spec_hash(normalized_spec),
         "timestamp_utc": datetime.now(UTC).isoformat(),
         "app_version": __version__,
         "dataset_fingerprint": _dataset_fingerprint(dataset),
         "result": results,
-        "warnings": [],
+        "warnings": warnings,
         "status": "ok",
     }
 
-    # Multiplicity correction — only when the analysis produced a p_value
-    if isinstance(results, dict) and "p_value" in results:
-        current_p = results["p_value"]
+    if is_confirmatory and plan is not None:
+        artifact["preregistration"] = {
+            "plan_id": plans_mod.plan_id(plan),
+            "hypothesis": plan.get("hypothesis", ""),
+            "prediction": plan.get("prediction", ""),
+            "alpha": plan.get("alpha"),
+            "deviations": deviations,
+            "faithful": not deviations,
+        }
+
+    # Multiplicity correction — only when the analysis produced a p-value
+    current_p = extract_p_value(results)
+    if current_p is not None:
         dataset_name = normalized_spec["dataset"]
         current_hash = artifact["spec_hash"]
 
@@ -361,8 +452,87 @@ def run_spec(spec_path: Path, project_path: Path) -> dict[str, Any]:
     # 2. Load the project and required data
     project = Project(project_path)
     try:
-        artifact = run_spec_payload(spec, project)
+        try:
+            artifact = run_spec_payload(spec, project)
+        except ConfirmatoryGateError as exc:
+            # A refused confirmatory run is a first-class, reportable outcome —
+            # not a crash. It is deliberately NOT persisted as a completed run.
+            return {
+                "spec": spec,
+                "status": "refused",
+                "reason": "confirmatory_gate",
+                "message": str(exc),
+                "result": None,
+                "warnings": [],
+            }
         project.save_run_artifact(artifact)
         return artifact
     finally:
         project.close()  # Ensure connection is closed
+
+
+def audit_dataset(project: Project, dataset_name: str) -> dict[str, Any]:
+    """Transparency report: declared confirmatory tests vs all executed tests.
+
+    Surfaces undisclosed testing — the core p-hacking signal — by comparing the
+    number of pre-registered confirmatory plans against the number of inferential
+    runs actually executed on a dataset.
+    """
+    plans = project.list_plans(dataset_name)
+    declared_plan_ids = {plans_mod.plan_id(p) for p in plans}
+
+    cursor = project.conn.cursor()
+    dataset_id = project.get_dataset_id(dataset_name)
+    executed: list[dict[str, Any]] = []
+    if dataset_id is not None:
+        cursor.execute(
+            "SELECT result_json FROM analysis_runs WHERE dataset_id = ? ORDER BY id",
+            (dataset_id,),
+        )
+        for (result_json,) in cursor.fetchall():
+            try:
+                artifact = json.loads(result_json)
+            except json.JSONDecodeError:
+                continue
+            spec = artifact.get("spec", {})
+            result = artifact.get("result", {})
+            executed.append(
+                {
+                    "analysis": spec.get("analysis"),
+                    "mode": spec.get("mode", "exploratory"),
+                    "plan_id": spec.get("plan_id"),
+                    "p_value": extract_p_value(result) if isinstance(result, dict) else None,
+                }
+            )
+
+    inferential_runs = [r for r in executed if r["p_value"] is not None]
+    confirmatory_runs = [r for r in executed if r["mode"] == "confirmatory"]
+    exploratory_inferential = [
+        r for r in inferential_runs if r["mode"] != "confirmatory"
+    ]
+    used_plan_ids = {r["plan_id"] for r in confirmatory_runs if r["plan_id"]}
+    unused_plans = sorted(declared_plan_ids - used_plan_ids)
+
+    warnings: list[str] = []
+    if exploratory_inferential:
+        warnings.append(
+            f"{len(exploratory_inferential)} inferential test(s) were run in exploratory mode "
+            "without pre-registration. Their p-values are not confirmatory."
+        )
+    if len(inferential_runs) > len(declared_plan_ids):
+        warnings.append(
+            f"{len(inferential_runs)} inferential tests executed but only {len(declared_plan_ids)} "
+            "hypotheses were pre-registered — possible undisclosed testing / p-hacking risk."
+        )
+
+    return {
+        "dataset": dataset_name,
+        "num_plans_declared": len(declared_plan_ids),
+        "num_runs_executed": len(executed),
+        "num_inferential_runs": len(inferential_runs),
+        "num_confirmatory_runs": len(confirmatory_runs),
+        "num_exploratory_inferential_runs": len(exploratory_inferential),
+        "unused_plan_ids": unused_plans,
+        "warnings": warnings,
+        "executed": executed,
+    }
