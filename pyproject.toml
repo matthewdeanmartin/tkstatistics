@@ -234,6 +234,10 @@ ruff = { name = "ruff", version = ">=0.6.2", schema = "semver" }
 
 
 
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
 [tool.strict-build-script]
 minimum_test_coverage = 1
 

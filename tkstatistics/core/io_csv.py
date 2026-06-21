@@ -82,7 +82,7 @@ def export_csv(table: TabularData, file_path: Path):
     """
     if not table.column_names:
         # Write an empty file for an empty dataset
-        file_path.write_text("")
+        file_path.write_text("", encoding="utf-8")
         return
 
     with file_path.open("w", newline="", encoding="utf-8") as f:
