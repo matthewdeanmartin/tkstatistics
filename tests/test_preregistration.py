@@ -119,6 +119,57 @@ def test_confirmatory_run_with_committed_plan_reveals_pvalue(tmp_path):
     assert artifact["preregistration"]["deviations"] == []
 
 
+def test_confirmatory_anova_with_committed_plan_reveals_pvalue(tmp_path):
+    project, _ = _make_project(tmp_path)
+    try:
+        plan = plans.build_plan(
+            analysis="one_way_anova", dataset="demo", inputs={"groups": ["x", "y"]},
+            options={},
+            hypothesis="The x and y group means differ.",
+            prediction="y has the higher mean.",
+        )
+        pid = project.commit_plan(plan)
+
+        spec = specs.create_spec(
+            "one_way_anova", "demo", inputs={"groups": ["x", "y"]},
+            options={}, mode="confirmatory", plan_id=pid, seed=1,
+        )
+        artifact = specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+    assert artifact["status"] == "ok"
+    assert artifact["result"]["test"] == "One-Way ANOVA"
+    assert "p_value" in artifact["result"]
+    assert artifact["preregistration"]["faithful"] is True
+    assert artifact["preregistration"]["deviations"] == []
+
+
+def test_confirmatory_anova_group_change_is_recorded_as_deviation(tmp_path):
+    project, _ = _make_project(tmp_path)
+    try:
+        plan = plans.build_plan(
+            analysis="one_way_anova", dataset="demo", inputs={"groups": ["x", "y"]},
+            options={}, hypothesis="The x and y group means differ.",
+        )
+        pid = project.commit_plan(plan)
+
+        # Same plan_id, but the executed spec drops a group — a deviation that is
+        # transparently recorded, not silently blocked.
+        spec = specs.create_spec(
+            "one_way_anova", "demo", inputs={"groups": ["x", "grp"]},
+            options={}, mode="confirmatory", plan_id=pid, seed=1,
+        )
+        artifact = specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+    assert artifact["status"] == "ok"
+    assert artifact["preregistration"]["faithful"] is False
+    assert artifact["preregistration"]["deviations"]
+    assert any("DEVIATES" in w for w in artifact["warnings"])
+
+
 def test_confirmatory_deviation_is_recorded_not_blocked(tmp_path):
     project, _ = _make_project(tmp_path)
     try:

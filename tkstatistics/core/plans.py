@@ -32,6 +32,7 @@ DECISION_OPTION_KEYS: dict[str, set[str]] = {
     "mann_whitney_u": set(),
     "wilcoxon_signed_rank": set(),
     "fisher_exact_2x2": set(),
+    "one_way_anova": set(),
 }
 
 

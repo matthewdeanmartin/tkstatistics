@@ -1,0 +1,1 @@
+{"spec_version": 1, "analysis": "one_way_anova", "dataset": "demo", "inputs": {"groups": ["g1", "g2", "g3"]}, "options": {}, "seed": 1, "mode": "exploratory", "plan_id": null, "app_version": "0.1.0"}

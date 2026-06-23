@@ -72,6 +72,30 @@ def test_render_artifact_includes_prereg_block():
     assert "p1" in text
 
 
+def test_render_correlation_matrix():
+    artifact = {
+        "spec": {"analysis": "correlation_matrix", "dataset": "d", "mode": "exploratory"},
+        "spec_hash": "c0ffee",
+        "status": "ok",
+        "result": {
+            "test": "Pearson correlation matrix",
+            "method": "pearson",
+            "names": ["a", "b"],
+            "correlations": [[1.0, 0.5], [0.5, 1.0]],
+            "p_values": [[None, 0.04], [0.04, None]],
+            "n": [[3, 3], [3, 3]],
+        },
+    }
+    text = render.render_artifact(artifact)
+    # The matrix renderer should show labelled rows and both tables.
+    assert "Correlation coefficients (r):" in text
+    assert "Two-sided p-values:" in text
+    assert "0.5000" in text
+    assert "0.0400" in text
+    # Diagonal p-value is None -> rendered as an em-dash, never "None".
+    assert "None" not in text
+
+
 def test_render_error_result():
     artifact = {
         "spec": {"analysis": "describe", "dataset": "d"},

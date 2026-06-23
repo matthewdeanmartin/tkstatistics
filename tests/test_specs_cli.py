@@ -182,6 +182,69 @@ def test_multiplicity_applied_for_two_specs_on_same_dataset(tmp_path):
     assert artifact2["multiplicity"]["adjusted_p_value"] >= artifact2["result"]["p_value"] - 1e-12
 
 
+def test_run_spec_payload_supports_one_way_anova(tmp_path):
+    project_path = _make_project(tmp_path)
+    project = Project(project_path)
+    try:
+        spec = specs.create_spec(
+            "one_way_anova",
+            "demo",
+            inputs={"groups": ["x", "y"]},
+            options={},
+            seed=5,
+        )
+        artifact = specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+    assert artifact["status"] == "ok"
+    assert artifact["result"]["test"] == "One-Way ANOVA"
+    assert "p_value" in artifact["result"]
+    # ANOVA yields a p-value, so multiplicity correction is applied.
+    assert "multiplicity" in artifact
+
+
+def test_run_spec_payload_supports_correlation_matrix(tmp_path):
+    project_path = _make_project(tmp_path)
+    project = Project(project_path)
+    try:
+        spec = specs.create_spec(
+            "correlation_matrix",
+            "demo",
+            inputs={"columns": ["x", "y"]},
+            options={"method": "pearson"},
+            seed=8,
+        )
+        artifact = specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+    assert artifact["status"] == "ok"
+    result = artifact["result"]
+    assert result["names"] == ["x", "y"]
+    assert result["correlations"][0][1] == pytest.approx(1.0)
+    # A correlation matrix is exploratory (many p-values, no single decision p).
+    assert "multiplicity" not in artifact
+
+
+def test_confirmatory_anova_requires_a_plan(tmp_path):
+    project_path = _make_project(tmp_path)
+    project = Project(project_path)
+    try:
+        spec = specs.create_spec(
+            "one_way_anova",
+            "demo",
+            inputs={"groups": ["x", "y"]},
+            options={},
+            mode="confirmatory",
+            seed=3,
+        )
+        with pytest.raises(specs.ConfirmatoryGateError):
+            specs.run_spec_payload(spec, project)
+    finally:
+        project.close()
+
+
 def test_multiplicity_not_added_for_descriptive_analysis(tmp_path):
     project_path = _make_project(tmp_path)
     project = Project(project_path)

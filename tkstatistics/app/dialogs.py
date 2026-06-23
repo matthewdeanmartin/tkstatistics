@@ -327,12 +327,72 @@ class ScatterDialog(AnalysisDialog):
         self.result = {"x": self.x_var.get(), "y": self.y_var.get(), "fit_line": self.fit_line.get()}
 
 
+class MultiVariableDialog(AnalysisDialog):
+    """Pick two or more variables (one-way ANOVA groups, correlation columns).
+
+    When ``methods`` is provided, also offers a method chooser (e.g. Pearson vs
+    Spearman for a correlation matrix).
+    """
+
+    def __init__(
+        self,
+        master,
+        variables: list[str],
+        title: str,
+        *,
+        prompt: str = "Select two or more variables:",
+        methods: list[str] | None = None,
+    ):
+        self._prompt = prompt
+        self._methods = methods
+        self.method = tk.StringVar(value=methods[0] if methods else "")
+        super().__init__(master, title=title, variables=variables)
+
+    def create_body(self, master: ttk.Frame):
+        ttk.Label(master, text=self._prompt).pack(anchor="w")
+
+        listbox_frame = ttk.Frame(master, borderwidth=1, relief="sunken")
+        self.listbox = tk.Listbox(listbox_frame, selectmode=tk.MULTIPLE, height=10)
+        for var in self.variables:
+            self.listbox.insert(tk.END, var)
+        scrollbar = ttk.Scrollbar(listbox_frame, orient=tk.VERTICAL, command=self.listbox.yview)
+        self.listbox.config(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.listbox.pack(side="left", fill="both", expand=True)
+        listbox_frame.pack(fill="both", expand=True, pady=5)
+
+        if self._methods:
+            method_frame = ttk.Labelframe(master, text="Method")
+            ttk.Combobox(
+                method_frame, textvariable=self.method,
+                values=self._methods, state="readonly",
+            ).pack(padx=5, pady=5)
+            method_frame.pack(fill="x", expand=True, pady=5)
+
+    def validate(self) -> bool:
+        if len(self.listbox.curselection()) < 2:
+            messagebox.showwarning("Need More", "Please select at least two variables.", parent=self)
+            return False
+        return True
+
+    def apply(self):
+        selected = [self.variables[i] for i in self.listbox.curselection()]
+        self.result = {"variables": selected}
+        if self._methods:
+            self.result["method"] = self.method.get()
+
+
 _INFERENTIAL_TESTS = {
     "One-Sample t-test": "ttest_1samp",
     "Independent t-test": "ttest_ind",
     "Mann-Whitney U": "mann_whitney_u",
     "Wilcoxon Signed-Rank": "wilcoxon_signed_rank",
+    "One-Way ANOVA": "one_way_anova",
 }
+
+# Tests whose inputs are an arbitrary number of group columns rather than the
+# X/(Y) pair the rest of the dialog assumes.
+_MULTI_GROUP_TESTS = {"one_way_anova"}
 
 
 class DeclareHypothesisDialog(AnalysisDialog):
@@ -365,20 +425,36 @@ class DeclareHypothesisDialog(AnalysisDialog):
         pred_frame.pack(fill="x", expand=True, pady=4)
 
         test_frame = ttk.Labelframe(master, text="Confirmatory test")
-        ttk.Combobox(
+        test_combo = ttk.Combobox(
             test_frame, textvariable=self.test_label,
             values=list(_INFERENTIAL_TESTS), state="readonly",
-        ).pack(padx=5, pady=5)
+        )
+        test_combo.pack(padx=5, pady=5)
+        test_combo.bind("<<ComboboxSelected>>", lambda _e: self._sync_input_visibility())
         test_frame.pack(fill="x", expand=True, pady=4)
 
-        var_frame = ttk.Labelframe(master, text="Variables")
-        ttk.Label(var_frame, text="X / data:").grid(row=0, column=0, sticky="e", padx=3, pady=3)
-        ttk.Combobox(var_frame, textvariable=self.x_var, values=self.variables, state="readonly", width=18).grid(row=0, column=1, padx=3, pady=3)
-        ttk.Label(var_frame, text="Y (two-sample):").grid(row=1, column=0, sticky="e", padx=3, pady=3)
-        ttk.Combobox(var_frame, textvariable=self.y_var, values=self.variables, state="readonly", width=18).grid(row=1, column=1, padx=3, pady=3)
-        var_frame.pack(fill="x", expand=True, pady=4)
+        self.var_frame = ttk.Labelframe(master, text="Variables")
+        ttk.Label(self.var_frame, text="X / data:").grid(row=0, column=0, sticky="e", padx=3, pady=3)
+        ttk.Combobox(self.var_frame, textvariable=self.x_var, values=self.variables, state="readonly", width=18).grid(row=0, column=1, padx=3, pady=3)
+        ttk.Label(self.var_frame, text="Y (two-sample):").grid(row=1, column=0, sticky="e", padx=3, pady=3)
+        ttk.Combobox(self.var_frame, textvariable=self.y_var, values=self.variables, state="readonly", width=18).grid(row=1, column=1, padx=3, pady=3)
+        self.var_frame.pack(fill="x", expand=True, pady=4)
 
-        opt_frame = ttk.Labelframe(master, text="Decision options")
+        self.groups_frame = ttk.Labelframe(master, text="Groups (two or more columns to compare)")
+        groups_inner = ttk.Frame(self.groups_frame, borderwidth=1, relief="sunken")
+        self.groups_listbox = tk.Listbox(groups_inner, selectmode=tk.MULTIPLE, height=6)
+        for var in self.variables:
+            self.groups_listbox.insert(tk.END, var)
+        groups_scroll = ttk.Scrollbar(groups_inner, orient=tk.VERTICAL, command=self.groups_listbox.yview)
+        self.groups_listbox.config(yscrollcommand=groups_scroll.set)
+        groups_scroll.pack(side="right", fill="y")
+        self.groups_listbox.pack(side="left", fill="both", expand=True)
+        groups_inner.pack(fill="both", expand=True, padx=5, pady=5)
+        # var_frame / groups_frame are packed/unpacked dynamically by
+        # _sync_input_visibility() once opt_frame (their pack anchor) exists.
+
+        self.opt_frame = ttk.Labelframe(master, text="Decision options")
+        opt_frame = self.opt_frame
         ttk.Label(opt_frame, text="Null mean (μ₀):").grid(row=0, column=0, sticky="e", padx=3, pady=3)
         ttk.Entry(opt_frame, textvariable=self.null_mean, width=10).grid(row=0, column=1, padx=3, pady=3)
         ttk.Label(opt_frame, text="Alternative:").grid(row=1, column=0, sticky="e", padx=3, pady=3)
@@ -389,11 +465,36 @@ class DeclareHypothesisDialog(AnalysisDialog):
         ttk.Entry(opt_frame, textvariable=self.alpha, width=10).grid(row=3, column=1, padx=3, pady=3)
         opt_frame.pack(fill="x", expand=True, pady=4)
 
+        # Now that the anchor frame exists, show the inputs for the default test.
+        self._sync_input_visibility()
+
+    def _sync_input_visibility(self):
+        """Show the group listbox for ANOVA, the X/Y pickers for everything else.
+
+        ANOVA has no decision options, so its option frame is hidden too (alpha
+        is still captured — it is collected separately below the frame layout).
+        """
+        analysis = _INFERENTIAL_TESTS[self.test_label.get()]
+        if analysis in _MULTI_GROUP_TESTS:
+            self.var_frame.pack_forget()
+            self.groups_frame.pack(before=self.opt_frame, fill="both", expand=True, pady=4)
+        else:
+            self.groups_frame.pack_forget()
+            self.var_frame.pack(before=self.opt_frame, fill="x", expand=True, pady=4)
+
+    def _selected_groups(self) -> list[str]:
+        return [self.variables[i] for i in self.groups_listbox.curselection()]
+
     def validate(self) -> bool:
         if not self.hypothesis.get().strip():
             messagebox.showwarning("Missing Hypothesis", "Please state your hypothesis first.", parent=self)
             return False
         analysis = _INFERENTIAL_TESTS[self.test_label.get()]
+        if analysis in _MULTI_GROUP_TESTS:
+            if len(self._selected_groups()) < 2:
+                messagebox.showwarning("Need More", "ANOVA needs at least two group columns.", parent=self)
+                return False
+            return self._validate_alpha()
         if not self.x_var.get():
             messagebox.showwarning("Missing Variable", "Please select the X / data variable.", parent=self)
             return False
@@ -404,11 +505,7 @@ class DeclareHypothesisDialog(AnalysisDialog):
             if self.x_var.get() == self.y_var.get():
                 messagebox.showwarning("Invalid Selection", "X and Y must differ.", parent=self)
                 return False
-        try:
-            if not (0.0 < float(self.alpha.get()) < 1.0):
-                raise ValueError
-        except ValueError:
-            messagebox.showwarning("Invalid Alpha", "Alpha must be a number between 0 and 1.", parent=self)
+        if not self._validate_alpha():
             return False
         if analysis == "ttest_1samp":
             try:
@@ -416,6 +513,15 @@ class DeclareHypothesisDialog(AnalysisDialog):
             except ValueError:
                 messagebox.showwarning("Invalid Value", "Null mean must be a number.", parent=self)
                 return False
+        return True
+
+    def _validate_alpha(self) -> bool:
+        try:
+            if not (0.0 < float(self.alpha.get()) < 1.0):
+                raise ValueError
+        except ValueError:
+            messagebox.showwarning("Invalid Alpha", "Alpha must be a number between 0 and 1.", parent=self)
+            return False
         return True
 
     def apply(self):
@@ -426,6 +532,9 @@ class DeclareHypothesisDialog(AnalysisDialog):
         elif analysis == "ttest_ind":
             inputs = {"x": self.x_var.get(), "y": self.y_var.get()}
             options = {"alternative": self.alternative.get(), "variance_assumption": self.variance.get()}
+        elif analysis in _MULTI_GROUP_TESTS:  # one_way_anova
+            inputs = {"groups": self._selected_groups()}
+            options = {}
         else:  # mann_whitney_u, wilcoxon_signed_rank
             inputs = {"x": self.x_var.get(), "y": self.y_var.get()}
             options = {}

@@ -17,7 +17,7 @@ from typing import Any
 from tkstatistics.__about__ import __version__
 
 # Import all stats functions to register them
-from tkstatistics.stats import descriptives, nonparametric, parametric, regression
+from tkstatistics.stats import correlation, descriptives, nonparametric, parametric, regression
 from tkstatistics.stats.multiplicity import holm_bonferroni_correction
 
 from . import plans as plans_mod
@@ -43,6 +43,9 @@ ANALYSIS_DISPATCHER: dict[str, Callable[..., dict[str, Any]]] = {
     # Regression
     "ols": regression.ols,
     "stdlib_simple_regression": regression.stdlib_simple_regression,  # <-- New entry
+    # ANOVA / correlation
+    "one_way_anova": parametric.one_way_anova,
+    "correlation_matrix": correlation.correlation_matrix,
 }
 
 SUPPORTED_SPEC_VERSION = 1
@@ -55,6 +58,7 @@ INFERENTIAL_ANALYSES: set[str] = {
     "fisher_exact_2x2",
     "ttest_1samp",
     "ttest_ind",
+    "one_way_anova",
 }
 
 
@@ -83,6 +87,8 @@ _ANALYSIS_INPUT_RULES: dict[str, dict[str, str]] = {
     "ttest_ind": {"x": "column_or_list", "y": "column_or_list"},
     "stdlib_simple_regression": {"x": "column", "y": "column"},
     "ols": {"X": "column_list_or_matrix", "y": "column"},
+    "one_way_anova": {"groups": "column_list_or_matrix"},
+    "correlation_matrix": {"columns": "column_list_or_matrix"},
 }
 
 _ANALYSIS_OPTION_RULES: dict[str, set[str]] = {
@@ -95,6 +101,8 @@ _ANALYSIS_OPTION_RULES: dict[str, set[str]] = {
     "ttest_ind": {"null_diff", "alternative", "variance_assumption", "conf_level"},
     "stdlib_simple_regression": set(),
     "ols": {"add_intercept"},
+    "one_way_anova": set(),
+    "correlation_matrix": {"method"},
 }
 
 
@@ -276,6 +284,9 @@ def validate_spec(spec: dict[str, Any], project: Project) -> dict[str, Any]:
     if analysis_name == "ols" and "add_intercept" in options and not isinstance(options["add_intercept"], bool):
         raise ValueError("Option 'add_intercept' must be a boolean.")
 
+    if analysis_name == "correlation_matrix" and "method" in options and options["method"] not in {"pearson", "spearman"}:
+        raise ValueError("Option 'method' must be one of: pearson, spearman.")
+
     if analysis_name == "ttest_1samp":
         if "null_mean" in options and not isinstance(options["null_mean"], (int, float)):
             raise ValueError("Option 'null_mean' must be numeric.")
@@ -316,6 +327,13 @@ def _prepare_analysis_kwargs(spec: dict[str, Any], dataset: Any) -> dict[str, An
 
     if spec["analysis"] == "ols" and "X" in kwargs and kwargs["X"] and isinstance(kwargs["X"][0], list):
         kwargs["X"] = list(zip(*kwargs["X"], strict=False))
+
+    # Carry the declared column names into the correlation matrix so the labelled
+    # output is reproducible from the spec alone.
+    if spec["analysis"] == "correlation_matrix":
+        columns_input = spec.get("inputs", {}).get("columns")
+        if isinstance(columns_input, list) and all(isinstance(v, str) for v in columns_input):
+            kwargs["names"] = list(columns_input)
 
     return kwargs
 

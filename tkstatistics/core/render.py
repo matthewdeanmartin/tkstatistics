@@ -36,6 +36,39 @@ def _render_result(result: dict[str, Any], indent: str = "  ") -> list[str]:
     return lines
 
 
+def _fmt_cell(value: Any) -> str:
+    """Format a correlation/p-value cell into a fixed 8-char field."""
+    if value is None:
+        return f"{'—':>8}"
+    return f"{value:>8.4f}"
+
+
+def render_correlation_matrix(result: dict[str, Any]) -> list[str]:
+    """Render a correlation_matrix result as aligned coefficient + p-value tables."""
+    names = result.get("names") or []
+    corr = result.get("correlations") or []
+    pvals = result.get("p_values") or []
+    label_w = max((len(str(n)) for n in names), default=4)
+
+    lines: list[str] = [f"Method: {result.get('method', '')}", ""]
+
+    header = " " * label_w + "".join(f"{str(n):>9}" for n in names)
+    lines.append("Correlation coefficients (r):")
+    lines.append(header)
+    for i, row_name in enumerate(names):
+        cells = "".join(" " + _fmt_cell(corr[i][j]) for j in range(len(names)))
+        lines.append(f"{str(row_name):<{label_w}}{cells}")
+
+    lines.append("")
+    lines.append("Two-sided p-values:")
+    lines.append(header)
+    for i, row_name in enumerate(names):
+        cells = "".join(" " + _fmt_cell(pvals[i][j]) for j in range(len(names)))
+        lines.append(f"{str(row_name):<{label_w}}{cells}")
+
+    return lines
+
+
 def render_artifact_trailer(artifact: dict[str, Any]) -> str:
     """Render only the pre-registration / multiplicity / warnings sections.
 
@@ -106,6 +139,9 @@ def render_artifact(artifact: dict[str, Any]) -> str:
         lines.append(f"ERROR: {result['error']}")
         if result.get("details"):
             lines.append(f"  {result['details']}")
+    elif isinstance(result, dict) and spec.get("analysis") == "correlation_matrix":
+        lines.append("Result:")
+        lines.extend(render_correlation_matrix(result))
     elif isinstance(result, dict):
         lines.append("Result:")
         lines.extend(_render_result(result))

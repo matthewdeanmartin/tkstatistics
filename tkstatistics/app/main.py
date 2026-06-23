@@ -22,6 +22,7 @@ from .dialogs import (
     FisherExactDialog,
     HistogramDialog,
     MultipleRegressionDialog,
+    MultiVariableDialog,
     OneSampleTTestDialog,
     ScatterDialog,
     SelectPlanDialog,
@@ -191,6 +192,8 @@ class App(tk.Tk):
             return f"Simple Regression: {inputs.get('y', '')} on {inputs.get('x', '')}"
         if analysis_name == "ols":
             return f"Multiple Regression: {inputs.get('y', '')}"
+        if analysis_name == "correlation_matrix":
+            return f"Correlation Matrix ({result.get('method', '')})" if isinstance(result, dict) else "Correlation Matrix"
         if isinstance(result, dict) and result.get("test"):
             return str(result["test"])
         return analysis_name
@@ -334,6 +337,38 @@ class App(tk.Tk):
         spec = specs.create_spec(
             "fisher_exact_2x2", self.active_dataset.name,
             inputs={"table": dialog.result["table"]}, options={},
+        )
+        self._save_and_run(spec)
+
+    def _run_anova(self):
+        if not self.active_dataset:
+            return
+        dialog = MultiVariableDialog(
+            self, self.active_dataset.column_names, "One-Way ANOVA",
+            prompt="Select two or more group columns to compare:",
+        )
+        if not dialog.result:
+            return
+        spec = specs.create_spec(
+            "one_way_anova", self.active_dataset.name,
+            inputs={"groups": dialog.result["variables"]}, options={},
+        )
+        self._save_and_run(spec)
+
+    def _run_correlation_matrix(self):
+        if not self.active_dataset:
+            return
+        dialog = MultiVariableDialog(
+            self, self.active_dataset.column_names, "Correlation Matrix",
+            prompt="Select two or more variables to correlate:",
+            methods=["pearson", "spearman"],
+        )
+        if not dialog.result:
+            return
+        spec = specs.create_spec(
+            "correlation_matrix", self.active_dataset.name,
+            inputs={"columns": dialog.result["variables"]},
+            options={"method": dialog.result["method"]},
         )
         self._save_and_run(spec)
 
@@ -523,11 +558,13 @@ class App(tk.Tk):
         analyze_menu.add_cascade(label="Regression", menu=reg_menu)
         reg_menu.add_command(label="Simple Linear (stdlib)...", command=self._run_simple_regression)
         reg_menu.add_command(label="Multiple Linear (OLS)...", command=self._run_multiple_regression)
+        analyze_menu.add_command(label="Correlation Matrix...", command=self._run_correlation_matrix)
         analyze_menu.add_separator()
         tests_menu = tk.Menu(analyze_menu, tearoff=0)
         analyze_menu.add_cascade(label="Hypothesis Tests", menu=tests_menu)
         tests_menu.add_command(label="One-Sample t-test...", command=self._run_ttest_1samp)
         tests_menu.add_command(label="Independent t-test...", command=self._run_ttest_ind)
+        tests_menu.add_command(label="One-Way ANOVA...", command=self._run_anova)
         tests_menu.add_command(label="Mann-Whitney U...", command=self._run_mann_whitney)
         tests_menu.add_command(label="Wilcoxon Signed-Rank...", command=self._run_wilcoxon)
         tests_menu.add_command(label="Fisher's Exact (2x2)...", command=self._run_fisher_exact)

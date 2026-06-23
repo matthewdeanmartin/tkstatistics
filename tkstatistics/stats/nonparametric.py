@@ -12,8 +12,18 @@ Numeric = Union[int, float]
 
 
 def _clean_numeric(data: list[Numeric | None]) -> list[float]:
-    """Drop None and non-finite values, coercing the rest to float."""
-    return [float(x) for x in data if x is not None and math.isfinite(float(x))]
+    """Drop None, non-numeric, and non-finite values, coercing the rest to float."""
+    clean: list[float] = []
+    for x in data:
+        if x is None:
+            continue
+        try:
+            value = float(x)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            clean.append(value)
+    return clean
 
 
 def _clean_pairs(x: list[Numeric | None], y: list[Numeric | None]) -> tuple[list[float], list[float]]:
@@ -23,7 +33,10 @@ def _clean_pairs(x: list[Numeric | None], y: list[Numeric | None]) -> tuple[list
     for xi, yi in zip(x, y, strict=False):
         if xi is None or yi is None:
             continue
-        fx, fy = float(xi), float(yi)
+        try:
+            fx, fy = float(xi), float(yi)
+        except (TypeError, ValueError):
+            continue
         if math.isfinite(fx) and math.isfinite(fy):
             clean_x.append(fx)
             clean_y.append(fy)

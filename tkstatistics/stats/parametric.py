@@ -4,7 +4,7 @@ import math
 import statistics
 from typing import Any
 
-from .distributions import regularized_incomplete_beta, student_t_cdf, student_t_ppf
+from .distributions import f_cdf, regularized_incomplete_beta, student_t_cdf, student_t_ppf
 
 # Backwards-compatible private aliases. The special functions now live in
 # ``distributions``; these names are kept so existing tests/imports keep working.
@@ -14,7 +14,18 @@ _student_t_ppf = student_t_ppf
 
 
 def _clean_numeric(data: list[float | int | None]) -> list[float]:
-    return [float(x) for x in data if x is not None and math.isfinite(float(x))]
+    """Drop None, non-numeric, and non-finite values, coercing the rest to float."""
+    clean: list[float] = []
+    for x in data:
+        if x is None:
+            continue
+        try:
+            value = float(x)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            clean.append(value)
+    return clean
 
 
 def ttest_1samp(
@@ -203,4 +214,75 @@ def ttest_ind(
         "cohen_d": cohen_d,
         "conf_level": conf_level,
         "confidence_interval": [ci_low, ci_high],
+    }
+
+
+def one_way_anova(groups: list[list[float | int | None]]) -> dict[str, Any]:
+    """Run a one-way ANOVA across two or more independent groups.
+
+    Tests the null hypothesis that all group means are equal, using the
+    F-distribution CDF from :mod:`tkstatistics.stats.distributions`. Missing
+    and non-finite values are dropped per group before computation.
+
+    Args:
+        groups: A list of samples, one per group.
+
+    Returns:
+        A dictionary with the F statistic, degrees of freedom, the p-value,
+        and the eta-squared effect size.
+    """
+    if not isinstance(groups, (list, tuple)) or len(groups) < 2:
+        return {"error": "At least two groups are required for ANOVA."}
+
+    clean_groups = [_clean_numeric(g) for g in groups]
+    group_sizes = [len(g) for g in clean_groups]
+
+    if any(size < 1 for size in group_sizes):
+        return {"error": "Each group must contain at least one non-missing finite observation."}
+
+    k = len(clean_groups)
+    total_n = sum(group_sizes)
+    if total_n <= k:
+        return {"error": "Total observations must exceed the number of groups."}
+
+    all_values = [x for g in clean_groups for x in g]
+    grand_mean = statistics.mean(all_values)
+    group_means = [statistics.mean(g) for g in clean_groups]
+
+    ss_between = sum(
+        size * (mean - grand_mean) ** 2 for size, mean in zip(group_sizes, group_means, strict=True)
+    )
+    ss_within = sum(
+        (x - mean) ** 2 for g, mean in zip(clean_groups, group_means, strict=True) for x in g
+    )
+    ss_total = ss_between + ss_within
+
+    df_between = k - 1
+    df_within = total_n - k
+
+    ms_within = ss_within / df_within
+
+    if ms_within <= 0.0:
+        # No within-group variance: groups are either identical or each constant.
+        f_stat = math.inf if ss_between > 0 else 0.0
+        p_value = 0.0 if ss_between > 0 else 1.0
+    else:
+        ms_between = ss_between / df_between
+        f_stat = ms_between / ms_within
+        p_value = 1.0 - f_cdf(f_stat, df_between, df_within)
+
+    eta_squared = ss_between / ss_total if ss_total > 0 else 0.0
+
+    return {
+        "test": "One-Way ANOVA",
+        "k_groups": k,
+        "n_total": total_n,
+        "group_sizes": group_sizes,
+        "df_between": df_between,
+        "df_within": df_within,
+        "ss_between": ss_between,
+        "ss_within": ss_within,
+        "f_statistic": f_stat,
+        "p_value": max(0.0, min(1.0, p_value)),
+        "eta_squared": eta_squared,
     }
