@@ -97,7 +97,7 @@ dev = [
     "scipy",
     "numpy",
     "statsmodels",
-    "keepachangelog-manager-fork>=6.1.1,<7",
+    "keepachangelog-manager-fork[all]>=6.5.0",
 ]
 
 [tool.black]
