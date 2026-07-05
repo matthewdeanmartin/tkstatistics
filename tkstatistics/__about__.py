@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 __title__ = "tkstatistics"
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 __description__ = "Statistics Application using only the Python Standard Library."
 __credits__ = [{"name": "Matthew Martin", "email": "matthewdeanmartin@gmail.com"}]
 __license__ = "MIT"
