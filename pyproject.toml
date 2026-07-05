@@ -1,6 +1,6 @@
 [project]
 name = "tkstatistics"
-version = "0.1.0"
+version = "0.0.1"
 description = "Statistics Application using only the Python Standard Library."
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
 readme = "README.md"
