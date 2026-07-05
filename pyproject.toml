@@ -101,6 +101,7 @@ dev = [
     "linkcheckmd>=1.4.0; python_version >= '3.8'",
     "codespell>=2.2.6; python_version >= '3.8'",
     "pyenchant>=3.2.2; python_version >= '3.8'",
+    "jiggle_version; python_version >= '3.11'",
 
     # real stats apps (used only as equivalence-test oracles, never at runtime)
     "scipy",
