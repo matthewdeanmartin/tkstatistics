@@ -34,15 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cross-checked against `statistics`/scipy.
 - Shared `viz/axes.py` plot-area + tick helpers; the histogram builder was refactored
   onto them.
-- **Much more of the backend is now reachable from the GUI.** New Analyze menu surface:
-  - **Hypothesis Tests** submenu wiring the five existing tests (one-sample t,
-    independent t, Mann-Whitney U, Wilcoxon signed-rank, Fisher's exact 2×2) with
-    option dialogs (alternative, variance assumption, null mean, 2×2 table entry).
-  - **Pre-register Hypothesis...** / **Run Confirmatory Test...** — the anti-p-hacking
-    workflow in the GUI: declare a hypothesis (sealed), then reveal the confirmatory
-    result against a committed plan. Refusals surface as a clear message.
-  - **Audit Report...** — the transparency report (declared vs executed, undisclosed-
-    testing warnings) rendered into the output viewer.
+- **Much more of the backend is now reachable from the GUI**, via a new Analyze menu surface.
+- Analyze menu — **Hypothesis Tests** submenu wiring the five existing tests (one-sample t,
+  independent t, Mann-Whitney U, Wilcoxon signed-rank, Fisher's exact 2×2) with
+  option dialogs (alternative, variance assumption, null mean, 2×2 table entry).
+- Analyze menu — **Pre-register Hypothesis...** / **Run Confirmatory Test...**: the anti-p-hacking
+  workflow in the GUI: declare a hypothesis (sealed), then reveal the confirmatory
+  result against a committed plan. Refusals surface as a clear message.
+- Analyze menu — **Audit Report...**: the transparency report (declared vs executed, undisclosed-
+  testing warnings) rendered into the output viewer.
 - Project Explorer now shows a **Pre-registered Plans** node; selecting a plan shows
   its hypothesis and locked options.
 - GUI analyses now run through the same `run_spec_payload` pipeline as the CLI, so they
