@@ -12,7 +12,6 @@
 - Don't do modal alerts on errors. It isn't 1995.
 - kernel density function for monte carlo univariate statistics
 
-
 ## Performance
 
 - What tool to test?
@@ -22,7 +21,7 @@
 ## Config
 
 - toml/.ini
-- some sort of way to 
+- some sort of way to
   - pick stdlib vs own algo
   - sqlite for math
-  - 
+  -

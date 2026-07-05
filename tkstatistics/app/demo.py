@@ -3,6 +3,7 @@
 """
 Generates an in-memory demo dataset and project for instant use on startup.
 """
+
 from __future__ import annotations
 
 import random
@@ -18,14 +19,15 @@ def create_demo_dataset() -> TabularData:
     The 'y' variable is constructed as a noisy linear combination of the others
     to make it suitable for regression analysis later.
     """
+    rng = random.Random()  # nosec B311
     data: DataSet = []
     for _ in range(50):
-        x1 = random.uniform(10.0, 90.0)
-        x2 = random.uniform(50.0, 150.0)
-        x3 = random.gauss(5.0, 2.0)
+        x1 = rng.uniform(10.0, 90.0)
+        x2 = rng.uniform(50.0, 150.0)
+        x3 = rng.gauss(5.0, 2.0)
 
         # Create a plausible relationship for y
-        noise = random.gauss(0, 15)
+        noise = rng.gauss(0, 15)
         y = (1.8 * x1) + (0.5 * x2) - (4.3 * x3) + 75 + noise
 
         data.append({"x1": round(x1, 2), "x2": round(x2, 2), "x3": round(x3, 2), "y": round(y, 2)})

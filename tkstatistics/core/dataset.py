@@ -3,6 +3,7 @@
 """
 Defines the in-memory data model for a tabular dataset.
 """
+
 from __future__ import annotations
 
 from typing import Any

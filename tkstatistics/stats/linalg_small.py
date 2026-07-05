@@ -5,6 +5,7 @@ A minimal, pure-Python linear algebra helper for small matrices.
 Used for solving the normal equations in Ordinary Least Squares (OLS) regression.
 No external dependencies.
 """
+
 from __future__ import annotations
 
 Matrix = list[list[float]]

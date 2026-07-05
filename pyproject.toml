@@ -4,21 +4,30 @@ version = "0.1.0"
 description = "Statistics Application using only the Python Standard Library."
 authors = [{ name = "Matthew Martin", email = "matthewdeanmartin@gmail.com" }]
 readme = "README.md"
-requires-python = ">=3.9"
-dependencies = [
-    # And backports!
-    "tomli>=2.0; python_version < '3.11'", # For config.toml parsing
-]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["statistics", "tkinter", "preregistration", "reproducibility"]
+requires-python = ">=3.11"
+dependencies = []
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
+    "Topic :: Scientific/Engineering :: Mathematics",
 ]
+
+[project.urls]
+Homepage = "https://github.com/matthewdeanmartin/tkstatistics"
+Repository = "https://github.com/matthewdeanmartin/tkstatistics"
+Issues = "https://github.com/matthewdeanmartin/tkstatistics/issues"
+Changelog = "https://github.com/matthewdeanmartin/tkstatistics/blob/main/CHANGELOG.md"
 
 
 [project.scripts]

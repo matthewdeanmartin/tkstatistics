@@ -97,12 +97,16 @@ class Project:
                 # Clear old data for this dataset
                 cursor.execute("DELETE FROM rows WHERE dataset_id = ?", (dataset_id,))
             else:
-                cursor.execute("INSERT INTO datasets (name, created_at, updated_at) VALUES (?, ?, ?)", (table.name, now, now))
+                cursor.execute(
+                    "INSERT INTO datasets (name, created_at, updated_at) VALUES (?, ?, ?)", (table.name, now, now)
+                )
                 dataset_id = cursor.lastrowid
 
             rows_to_insert = [(dataset_id, i, json.dumps(row)) for i, row in enumerate(table.to_list_of_dicts())]
             if rows_to_insert:
-                cursor.executemany("INSERT INTO rows (dataset_id, row_idx, payload_json) VALUES (?, ?, ?)", rows_to_insert)
+                cursor.executemany(
+                    "INSERT INTO rows (dataset_id, row_idx, payload_json) VALUES (?, ?, ?)", rows_to_insert
+                )
 
     def load_dataset(self, name: str) -> TabularData:
         """Loads a dataset from the database by name."""

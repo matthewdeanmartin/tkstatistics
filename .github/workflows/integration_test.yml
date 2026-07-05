@@ -1,36 +1,28 @@
+---
 name: Dogfood
-
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           persist-credentials: false
-
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: '3.14'
-
       - name: Install uv and pipx
         run: |
           pip install uv && pip install pipx
-
       - name: Install global dependencies
         run: |
           pipx install uv && pipx install "coderoller" && \
           pipx install isort && pipx install black && pipx install bandit && \
           pipx install pylint && pipx install poetry && pipx install hatch
-
       - name: Install Dependencies
         run: uv sync --all-extras
-
       - name: Shred-Compile-Run
         run: chmod +x scripts/*.sh && ./scripts/dogfood.sh

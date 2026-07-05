@@ -5,10 +5,12 @@ Simple and Multiple Linear Regression using Ordinary Least Squares (OLS).
 Includes a from-scratch implementation for multiple regression and a wrapper
 for the stdlib's simple linear regression function.
 """
+
 from __future__ import annotations
 
 import math
 import statistics
+from collections.abc import Sequence
 from typing import Any
 
 from . import linalg_small
@@ -17,7 +19,7 @@ from .distributions import student_t_cdf, student_t_ppf
 
 def _coef_inference(
     coeffs: list[float],
-    se_coeffs: list[float | None],
+    se_coeffs: Sequence[float | None],
     df_residual: int,
     conf_level: float = 0.95,
 ) -> tuple[list[float | None], list[float | None], list[list[float] | None]]:
@@ -101,9 +103,7 @@ def stdlib_simple_regression(x: list[float], y: list[float]) -> dict[str, Any]:
         se_intercept, se_slope = (None, None)
 
     df_residual = n - p
-    t_stats, p_values, conf_intervals = _coef_inference(
-        [intercept, slope], [se_intercept, se_slope], df_residual
-    )
+    t_stats, p_values, conf_intervals = _coef_inference([intercept, slope], [se_intercept, se_slope], df_residual)
 
     return {
         "coefficients": [intercept, slope],

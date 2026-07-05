@@ -72,8 +72,12 @@ def test_confirmatory_run_without_plan_is_refused(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         spec = specs.create_spec(
-            "ttest_1samp", "demo", inputs={"data": "y"},
-            options={"null_mean": 5.0}, mode="confirmatory", seed=1,
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "y"},
+            options={"null_mean": 5.0},
+            mode="confirmatory",
+            seed=1,
         )
         with pytest.raises(ConfirmatoryGateError):
             specs.run_spec_payload(spec, project)
@@ -85,8 +89,13 @@ def test_confirmatory_run_with_unknown_plan_is_refused(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         spec = specs.create_spec(
-            "ttest_1samp", "demo", inputs={"data": "y"},
-            options={"null_mean": 5.0}, mode="confirmatory", plan_id="deadbeefdeadbeef", seed=1,
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "y"},
+            options={"null_mean": 5.0},
+            mode="confirmatory",
+            plan_id="deadbeefdeadbeef",
+            seed=1,
         )
         with pytest.raises(ConfirmatoryGateError):
             specs.run_spec_payload(spec, project)
@@ -98,16 +107,22 @@ def test_confirmatory_run_with_committed_plan_reveals_pvalue(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         plan = plans.build_plan(
-            analysis="ttest_1samp", dataset="demo", inputs={"data": "y"},
+            analysis="ttest_1samp",
+            dataset="demo",
+            inputs={"data": "y"},
             options={"null_mean": 5.0, "alternative": "two-sided"},
             hypothesis="Mean of y differs from 5.",
         )
         pid = project.commit_plan(plan)
 
         spec = specs.create_spec(
-            "ttest_1samp", "demo", inputs={"data": "y"},
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "y"},
             options={"null_mean": 5.0, "alternative": "two-sided"},
-            mode="confirmatory", plan_id=pid, seed=1,
+            mode="confirmatory",
+            plan_id=pid,
+            seed=1,
         )
         artifact = specs.run_spec_payload(spec, project)
     finally:
@@ -123,7 +138,9 @@ def test_confirmatory_anova_with_committed_plan_reveals_pvalue(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         plan = plans.build_plan(
-            analysis="one_way_anova", dataset="demo", inputs={"groups": ["x", "y"]},
+            analysis="one_way_anova",
+            dataset="demo",
+            inputs={"groups": ["x", "y"]},
             options={},
             hypothesis="The x and y group means differ.",
             prediction="y has the higher mean.",
@@ -131,8 +148,13 @@ def test_confirmatory_anova_with_committed_plan_reveals_pvalue(tmp_path):
         pid = project.commit_plan(plan)
 
         spec = specs.create_spec(
-            "one_way_anova", "demo", inputs={"groups": ["x", "y"]},
-            options={}, mode="confirmatory", plan_id=pid, seed=1,
+            "one_way_anova",
+            "demo",
+            inputs={"groups": ["x", "y"]},
+            options={},
+            mode="confirmatory",
+            plan_id=pid,
+            seed=1,
         )
         artifact = specs.run_spec_payload(spec, project)
     finally:
@@ -149,16 +171,24 @@ def test_confirmatory_anova_group_change_is_recorded_as_deviation(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         plan = plans.build_plan(
-            analysis="one_way_anova", dataset="demo", inputs={"groups": ["x", "y"]},
-            options={}, hypothesis="The x and y group means differ.",
+            analysis="one_way_anova",
+            dataset="demo",
+            inputs={"groups": ["x", "y"]},
+            options={},
+            hypothesis="The x and y group means differ.",
         )
         pid = project.commit_plan(plan)
 
         # Same plan_id, but the executed spec drops a group — a deviation that is
         # transparently recorded, not silently blocked.
         spec = specs.create_spec(
-            "one_way_anova", "demo", inputs={"groups": ["x", "grp"]},
-            options={}, mode="confirmatory", plan_id=pid, seed=1,
+            "one_way_anova",
+            "demo",
+            inputs={"groups": ["x", "grp"]},
+            options={},
+            mode="confirmatory",
+            plan_id=pid,
+            seed=1,
         )
         artifact = specs.run_spec_payload(spec, project)
     finally:
@@ -174,7 +204,9 @@ def test_confirmatory_deviation_is_recorded_not_blocked(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         plan = plans.build_plan(
-            analysis="ttest_1samp", dataset="demo", inputs={"data": "y"},
+            analysis="ttest_1samp",
+            dataset="demo",
+            inputs={"data": "y"},
             options={"null_mean": 5.0, "alternative": "two-sided"},
             hypothesis="Mean of y differs from 5.",
         )
@@ -182,9 +214,13 @@ def test_confirmatory_deviation_is_recorded_not_blocked(tmp_path):
 
         # Same plan_id, but the executed spec changes the null mean — a deviation.
         spec = specs.create_spec(
-            "ttest_1samp", "demo", inputs={"data": "y"},
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "y"},
             options={"null_mean": 6.0, "alternative": "two-sided"},
-            mode="confirmatory", plan_id=pid, seed=1,
+            mode="confirmatory",
+            plan_id=pid,
+            seed=1,
         )
         artifact = specs.run_spec_payload(spec, project)
     finally:
@@ -200,8 +236,12 @@ def test_confirmatory_mode_rejects_non_inferential_analysis(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         spec = specs.create_spec(
-            "describe", "demo", inputs={"data": "y"}, options={},
-            mode="confirmatory", seed=1,
+            "describe",
+            "demo",
+            inputs={"data": "y"},
+            options={},
+            mode="confirmatory",
+            seed=1,
         )
         with pytest.raises(ConfirmatoryGateError):
             specs.run_spec_payload(spec, project)
@@ -213,8 +253,12 @@ def test_exploratory_run_needs_no_plan(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         spec = specs.create_spec(
-            "ttest_1samp", "demo", inputs={"data": "y"},
-            options={"null_mean": 5.0}, mode="exploratory", seed=1,
+            "ttest_1samp",
+            "demo",
+            inputs={"data": "y"},
+            options={"null_mean": 5.0},
+            mode="exploratory",
+            seed=1,
         )
         artifact = specs.run_spec_payload(spec, project)
     finally:
@@ -228,8 +272,11 @@ def test_commit_plan_is_idempotent_but_rejects_collision(tmp_path):
     project, _ = _make_project(tmp_path)
     try:
         plan = plans.build_plan(
-            analysis="ttest_1samp", dataset="demo", inputs={"data": "y"},
-            options={"null_mean": 5.0}, hypothesis="h",
+            analysis="ttest_1samp",
+            dataset="demo",
+            inputs={"data": "y"},
+            options={"null_mean": 5.0},
+            hypothesis="h",
         )
         pid1 = project.commit_plan(plan)
         pid2 = project.commit_plan(plan)  # idempotent
@@ -251,8 +298,12 @@ def test_run_spec_returns_refusal_artifact(tmp_path):
 
     spec_path = tmp_path / "spec.json"
     spec = specs.create_spec(
-        "ttest_1samp", "demo", inputs={"data": "y"},
-        options={"null_mean": 5.0}, mode="confirmatory", seed=1,
+        "ttest_1samp",
+        "demo",
+        inputs={"data": "y"},
+        options={"null_mean": 5.0},
+        mode="confirmatory",
+        seed=1,
     )
     spec_path.write_text(json.dumps(spec), encoding="utf-8")
 
@@ -275,8 +326,12 @@ def test_audit_flags_undisclosed_exploratory_testing(tmp_path):
         # Run two exploratory inferential tests, no pre-registration.
         for col, seed in [("y", 1), ("x", 2)]:
             spec = specs.create_spec(
-                "ttest_1samp", "demo", inputs={"data": col},
-                options={"null_mean": 0.0}, mode="exploratory", seed=seed,
+                "ttest_1samp",
+                "demo",
+                inputs={"data": col},
+                options={"null_mean": 0.0},
+                mode="exploratory",
+                seed=seed,
             )
             artifact = specs.run_spec_payload(spec, project)
             project.save_run_artifact(artifact)

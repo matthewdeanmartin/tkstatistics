@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from .axes import draw_axes, draw_y_ticks, make_plot_area, nice_ticks
@@ -42,11 +43,11 @@ class BoxplotSpec:
     y_label: str = ""
 
 
-def _clean(values: list[float | int | None]) -> list[float]:
+def _clean(values: Sequence[float | int | None]) -> list[float]:
     return [float(v) for v in values if v is not None and math.isfinite(float(v))]
 
 
-def compute_box_stats(values: list[float | int | None]) -> BoxStats:
+def compute_box_stats(values: Sequence[float | int | None]) -> BoxStats:
     """Compute quartiles, Tukey whiskers, and outliers for ``values``."""
     clean = sorted(_clean(values))
     if not clean:

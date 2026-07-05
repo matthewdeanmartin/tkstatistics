@@ -1,53 +1,84 @@
 # tkstatistics
 
-Statistical package that uses only python's standard library.
+`tkstatistics` is a small-data statistics desktop application and headless
+runner built with the Python standard library. Its defining workflow is
+pre-registration: a confirmatory analysis must match a committed hypothesis
+plan before the application reveals its p-value.
 
-- GUI
-- Surface anything in the `statistics`, `random` and `math` packages related to statistics.
-- Small data statistics (nonparametric methods, nonnormality, etc)
+The project is alpha software intended for teaching and reproducible analysis
+on modest datasets. It is not a replacement for NumPy, SciPy, pandas, R, or a
+validated clinical statistics system.
 
-[![tests](https://github.com/matthewdeanmartin/tkstatistics/actions/workflows/build.yml/badge.svg)
-](https://github.com/matthewdeanmartin/tkstatistics/actions/workflows/tests.yml)
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/matthewdeanmartin/tkstatistics/main.svg)
-](https://results.pre-commit.ci/latest/github/matthewdeanmartin/tkstatistics/main)
-[![Downloads](https://img.shields.io/pypi/dm/tkstatistics)](https://pypistats.org/packages/tkstatistics)
-[![Python Version](https://img.shields.io/pypi/pyversions/tkstatistics)
-![Release](https://img.shields.io/pypi/v/tkstatistics)
-](https://pypi.org/project/tkstatistics/)
+## Features
+
+- Tkinter desktop application with CSV import and SQLite project files.
+- Reproducible JSON analysis specifications and persisted run artifacts.
+- Committed analysis plans, confirmatory-result gating, and dataset audit
+  reports.
+- Descriptives, frequency tables, t-tests, nonparametric tests, Fisher's exact
+  test, ANOVA, correlations, and linear regression.
+- Histogram, box plot, scatter plot, and normal Q-Q plot rendering with SVG
+  export.
+- No third-party runtime dependencies. Numerical routines are cross-checked
+  against established scientific Python libraries in the test suite.
 
 ## Installation
 
-Doesn't have to run in a virtual environment because doesn't depend on any libraries.
+Python 3.11 or newer is required.
 
-`pip install tkstatistics`
+```console
+python -m pip install tkstatistics
+```
 
-## Usage
+Tkinter is included with standard Python installers on Windows and macOS. Some
+Linux distributions package it separately, for example as `python3-tk`.
 
-Run app.
+## Desktop usage
 
-Load datasets.
+Launch the application with either command:
 
-- TODO: persist dataset to Sqlite
+```console
+tkstatistics
+python -m tkstatistics
+```
 
-Datasets are used by analysis, represented by a spec.
+Create or open a `.statproj` project, import a CSV dataset, then use the
+**Analyze** and **Graphs** menus. Confirmatory analyses follow a two-step flow:
+first choose **Pre-register Hypothesis...**, then **Run Confirmatory Test...**.
 
-- TODO: save analysis files to a folder to make an analysis repeatable
+## Headless usage
 
-A run is saved in memory.
+Run a JSON specification against an existing project:
 
-- TODO: allow export of everything, data, spec, output, etc as a repeatable science feature.
+```console
+tkstatistics --run analysis.json --project study.statproj --format text
+```
 
-## Output
+Machine-readable output is the default and can also be saved to a file:
 
-Not Implement, but on the road map
+```console
+tkstatistics --run analysis.json --project study.statproj \
+  --format json --output run-artifact.json
+```
 
-- Text output
-- LaxTeX output
-- SVG chart
+Pre-registration and auditing are available without the GUI:
 
-## Design goals
+```console
+tkstatistics --commit-plan plan.json --project study.statproj
+tkstatistics --audit dataset_name --project study.statproj
+```
 
-- Use only the standard library. So it will never be as good or performant as numpy, pandas and so on
-- Target canned, small data statistics. Won't involve infinite programmability like R.
-- Match results of other 3rd party libraries because I don't actually have a Ph D in stats, but I can use LLM and hack
-  until the code matches other 3rd party libraries
+See `tkstatistics --help` and the
+[`examples/mean_hypothesis_demo`](https://github.com/matthewdeanmartin/tkstatistics/tree/main/examples/mean_hypothesis_demo)
+walkthrough.
+
+## Development
+
+```console
+uv sync --all-extras --all-groups
+make check-ci
+make publish-check
+```
+
+The package is MIT licensed. See the
+[release history](https://github.com/matthewdeanmartin/tkstatistics/blob/main/CHANGELOG.md).

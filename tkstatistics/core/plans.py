@@ -135,7 +135,7 @@ def spec_matches_plan(spec: dict[str, Any], plan: dict[str, Any]) -> list[str]:
     if declared_inputs != spec_inputs:
         deviations.append(f"inputs declared {declared_inputs} but spec uses {spec_inputs}")
 
-    analysis = spec.get("analysis", plan.get("analysis"))
+    analysis = str(spec.get("analysis", plan.get("analysis")) or "")
     declared_opts = plan.get("decision_options", {})
     spec_opts = decision_options(analysis, spec.get("options", {}))
     if declared_opts != spec_opts:

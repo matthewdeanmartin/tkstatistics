@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import math
 import statistics
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ..stats.distributions import normal_ppf
@@ -28,11 +29,11 @@ class QQSpec:
     title: str = ""
 
 
-def _clean(values: list[float | int | None]) -> list[float]:
+def _clean(values: Sequence[float | int | None]) -> list[float]:
     return [float(v) for v in values if v is not None and math.isfinite(float(v))]
 
 
-def compute_qq_points(values: list[float | int | None]) -> list[tuple[float, float]]:
+def compute_qq_points(values: Sequence[float | int | None]) -> list[tuple[float, float]]:
     """Return (theoretical_quantile, sample_quantile) pairs, sorted by theory.
 
     Uses Blom's plotting position (i - 3/8) / (n + 1/4), the common default for
@@ -66,9 +67,7 @@ def build_qqplot(spec: QQSpec, width: float = 520.0, height: float = 480.0) -> S
     y_lo, y_hi = min(sy), max(sy)
     x_pad = (x_hi - x_lo) * 0.05 or 1.0
     y_pad = (y_hi - y_lo) * 0.05 or 1.0
-    area = make_plot_area(
-        scene, x_lo - x_pad, x_hi + x_pad, y_lo - y_pad, y_hi + y_pad, has_title=bool(spec.title)
-    )
+    area = make_plot_area(scene, x_lo - x_pad, x_hi + x_pad, y_lo - y_pad, y_hi + y_pad, has_title=bool(spec.title))
 
     draw_axes(scene, area)
     draw_x_ticks(scene, area, nice_ticks(x_lo, x_hi, 5))

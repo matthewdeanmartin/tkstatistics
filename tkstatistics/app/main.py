@@ -51,10 +51,6 @@ class App(tk.Tk):
         self._update_ui_state()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    def _on_dataset_selected(self, name: str):
-        """Callback from ProjectExplorer when a dataset is clicked."""
-        self._load_dataset_into_grid(name)
-
     def _create_widgets(self):
         """Creates the main 3-pane window layout."""
         # Main container is a horizontal paned window
@@ -130,15 +126,17 @@ class App(tk.Tk):
         ]
         if plan.get("prediction"):
             lines.append(f"  Prediction  : {plan['prediction']}")
-        lines.extend([
-            f"  Test        : {plan.get('analysis', '')}",
-            f"  Dataset     : {plan.get('dataset', '')}",
-            f"  Inputs      : {plan.get('inputs', {})}",
-            f"  Decision opts: {plan.get('decision_options', {})}",
-            f"  Alpha       : {plan.get('alpha')}",
-            "",
-            "  Use Analyze ▸ Run Confirmatory Test... to reveal the result.",
-        ])
+        lines.extend(
+            [
+                f"  Test        : {plan.get('analysis', '')}",
+                f"  Dataset     : {plan.get('dataset', '')}",
+                f"  Inputs      : {plan.get('inputs', {})}",
+                f"  Decision opts: {plan.get('decision_options', {})}",
+                f"  Alpha       : {plan.get('alpha')}",
+                "",
+                "  Use Analyze ▸ Run Confirmatory Test... to reveal the result.",
+            ]
+        )
         self.output_viewer.add_result(
             f"Plan: {plan.get('analysis', '')}",
             "\n".join(lines),
@@ -157,7 +155,10 @@ class App(tk.Tk):
             return
 
         dataset_name = spec.get("dataset")
-        if not dataset_name or not self.active_dataset or self.active_dataset.name != dataset_name:
+        if not isinstance(dataset_name, str) or not dataset_name:
+            messagebox.showerror("Analysis Error", "The analysis spec does not name a dataset.", parent=self)
+            return
+        if not self.active_dataset or self.active_dataset.name != dataset_name:
             self._load_dataset_into_grid(dataset_name)
         if not self.active_dataset:
             messagebox.showerror("Error", f"Dataset '{dataset_name}' for this analysis could not be loaded.")
@@ -193,7 +194,9 @@ class App(tk.Tk):
         if analysis_name == "ols":
             return f"Multiple Regression: {inputs.get('y', '')}"
         if analysis_name == "correlation_matrix":
-            return f"Correlation Matrix ({result.get('method', '')})" if isinstance(result, dict) else "Correlation Matrix"
+            return (
+                f"Correlation Matrix ({result.get('method', '')})" if isinstance(result, dict) else "Correlation Matrix"
+            )
         if isinstance(result, dict) and result.get("test"):
             return str(result["test"])
         return analysis_name
@@ -247,7 +250,9 @@ class App(tk.Tk):
             return
 
         dep_var, ind_var = selections["dependent"], selections["independent"]
-        spec = specs.create_spec("stdlib_simple_regression", self.active_dataset.name, inputs={"y": dep_var, "x": ind_var}, options={})
+        spec = specs.create_spec(
+            "stdlib_simple_regression", self.active_dataset.name, inputs={"y": dep_var, "x": ind_var}, options={}
+        )
         self.project.save_analysis(spec)
         self.project_explorer.populate(self.project)
         self._execute_and_display_spec(spec)  # Use the central executor
@@ -271,6 +276,8 @@ class App(tk.Tk):
 
     def _save_and_run(self, spec: dict[str, Any]):
         """Persist the spec to the project explorer and run it."""
+        if not self.project:
+            return
         self.project.save_analysis(spec)
         self.project_explorer.populate(self.project)
         self._execute_and_display_spec(spec)
@@ -282,7 +289,8 @@ class App(tk.Tk):
         if not dialog.result:
             return
         spec = specs.create_spec(
-            "ttest_1samp", self.active_dataset.name,
+            "ttest_1samp",
+            self.active_dataset.name,
             inputs={"data": dialog.result["variable"]},
             options={"null_mean": dialog.result["null_mean"], "alternative": dialog.result["alternative"]},
         )
@@ -295,7 +303,8 @@ class App(tk.Tk):
         if not dialog.result:
             return
         spec = specs.create_spec(
-            "ttest_ind", self.active_dataset.name,
+            "ttest_ind",
+            self.active_dataset.name,
             inputs={"x": dialog.result["x"], "y": dialog.result["y"]},
             options={
                 "alternative": dialog.result["alternative"],
@@ -311,8 +320,10 @@ class App(tk.Tk):
         if not dialog.result:
             return
         spec = specs.create_spec(
-            "mann_whitney_u", self.active_dataset.name,
-            inputs={"x": dialog.result["x"], "y": dialog.result["y"]}, options={},
+            "mann_whitney_u",
+            self.active_dataset.name,
+            inputs={"x": dialog.result["x"], "y": dialog.result["y"]},
+            options={},
         )
         self._save_and_run(spec)
 
@@ -323,8 +334,10 @@ class App(tk.Tk):
         if not dialog.result:
             return
         spec = specs.create_spec(
-            "wilcoxon_signed_rank", self.active_dataset.name,
-            inputs={"x": dialog.result["x"], "y": dialog.result["y"]}, options={},
+            "wilcoxon_signed_rank",
+            self.active_dataset.name,
+            inputs={"x": dialog.result["x"], "y": dialog.result["y"]},
+            options={},
         )
         self._save_and_run(spec)
 
@@ -335,8 +348,10 @@ class App(tk.Tk):
         if not dialog.result:
             return
         spec = specs.create_spec(
-            "fisher_exact_2x2", self.active_dataset.name,
-            inputs={"table": dialog.result["table"]}, options={},
+            "fisher_exact_2x2",
+            self.active_dataset.name,
+            inputs={"table": dialog.result["table"]},
+            options={},
         )
         self._save_and_run(spec)
 
@@ -344,14 +359,18 @@ class App(tk.Tk):
         if not self.active_dataset:
             return
         dialog = MultiVariableDialog(
-            self, self.active_dataset.column_names, "One-Way ANOVA",
+            self,
+            self.active_dataset.column_names,
+            "One-Way ANOVA",
             prompt="Select two or more group columns to compare:",
         )
         if not dialog.result:
             return
         spec = specs.create_spec(
-            "one_way_anova", self.active_dataset.name,
-            inputs={"groups": dialog.result["variables"]}, options={},
+            "one_way_anova",
+            self.active_dataset.name,
+            inputs={"groups": dialog.result["variables"]},
+            options={},
         )
         self._save_and_run(spec)
 
@@ -359,14 +378,17 @@ class App(tk.Tk):
         if not self.active_dataset:
             return
         dialog = MultiVariableDialog(
-            self, self.active_dataset.column_names, "Correlation Matrix",
+            self,
+            self.active_dataset.column_names,
+            "Correlation Matrix",
             prompt="Select two or more variables to correlate:",
             methods=["pearson", "spearman"],
         )
         if not dialog.result:
             return
         spec = specs.create_spec(
-            "correlation_matrix", self.active_dataset.name,
+            "correlation_matrix",
+            self.active_dataset.name,
             inputs={"columns": dialog.result["variables"]},
             options={"method": dialog.result["method"]},
         )
@@ -398,8 +420,7 @@ class App(tk.Tk):
         self.project_explorer.populate(self.project)
         messagebox.showinfo(
             "Hypothesis Pre-registered",
-            f"Plan committed (id {plan_id}).\n\nThe result is sealed. Use "
-            "'Run Confirmatory Test...' to reveal it.",
+            f"Plan committed (id {plan_id}).\n\nThe result is sealed. Use " "'Run Confirmatory Test...' to reveal it.",
             parent=self,
         )
 
@@ -582,7 +603,9 @@ class App(tk.Tk):
         self.graphs_menu = graphs_menu
 
     def _new_project(self):
-        path = filedialog.asksaveasfilename(title="Create New Project", defaultextension=".statproj", filetypes=[("tkstatistics Project", "*.statproj")])
+        path = filedialog.asksaveasfilename(
+            title="Create New Project", defaultextension=".statproj", filetypes=[("tkstatistics Project", "*.statproj")]
+        )
         if path:
             self._set_project(Project(path))
 
@@ -664,7 +687,9 @@ class App(tk.Tk):
         )
         return "\n".join(lines)
 
-    def _format_regression_results(self, title: str, dep_var: str, pred_vars: list[str], results: dict[str, Any]) -> str:
+    def _format_regression_results(
+        self, title: str, dep_var: str, pred_vars: list[str], results: dict[str, Any]
+    ) -> str:
         if "error" in results:
             return f"{title}\n\nError: {results['error']}\nDetails: {results.get('details', 'N/A')}"
 

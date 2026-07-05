@@ -3,6 +3,7 @@
 """
 Calculates descriptive statistics for a list of numerical data.
 """
+
 from __future__ import annotations
 
 import math

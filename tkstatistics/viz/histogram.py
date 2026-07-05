@@ -11,6 +11,7 @@ Histogram chart builder.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from .axes import draw_axes, draw_x_ticks, draw_y_ticks, make_plot_area, nice_ticks
@@ -27,11 +28,11 @@ class HistogramSpec:
     x_label: str = ""
 
 
-def _clean(values: list[float | int | None]) -> list[float]:
+def _clean(values: Sequence[float | int | None]) -> list[float]:
     return [float(v) for v in values if v is not None and math.isfinite(float(v))]
 
 
-def compute_bins(values: list[float | int | None], bins: int = 10) -> tuple[list[float], list[int]]:
+def compute_bins(values: Sequence[float | int | None], bins: int = 10) -> tuple[list[float], list[int]]:
     """Bin ``values`` into ``bins`` equal-width buckets.
 
     Returns ``(edges, counts)`` where ``edges`` has ``bins + 1`` entries and

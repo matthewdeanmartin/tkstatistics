@@ -9,14 +9,18 @@ never requires importing tkinter (or having a display).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from .scene import Scene
 
 if TYPE_CHECKING:  # pragma: no cover
     import tkinter as tk
 
-_ANCHOR_MAP = {"start": "w", "middle": "center", "end": "e"}
+_ANCHOR_MAP: dict[str, Literal["w", "center", "e"]] = {
+    "start": "w",
+    "middle": "center",
+    "end": "e",
+}
 
 
 def render_canvas(canvas: tk.Canvas, scene: Scene) -> None:
@@ -26,8 +30,13 @@ def render_canvas(canvas: tk.Canvas, scene: Scene) -> None:
 
     for r in scene.rects:
         canvas.create_rectangle(
-            r.x, r.y, r.x + r.width, r.y + r.height,
-            fill=r.fill, outline=r.stroke, width=r.stroke_width,
+            r.x,
+            r.y,
+            r.x + r.width,
+            r.y + r.height,
+            fill=r.fill,
+            outline=r.stroke,
+            width=r.stroke_width,
         )
 
     for ln in scene.lines:
@@ -40,7 +49,9 @@ def render_canvas(canvas: tk.Canvas, scene: Scene) -> None:
 
     for t in scene.texts:
         canvas.create_text(
-            t.x, t.y, text=t.text,
+            t.x,
+            t.y,
+            text=t.text,
             anchor=_ANCHOR_MAP.get(t.anchor, "center"),
             font=("sans-serif", int(t.font_size)),
             fill=t.fill,

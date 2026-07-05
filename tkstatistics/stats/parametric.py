@@ -249,12 +249,8 @@ def one_way_anova(groups: list[list[float | int | None]]) -> dict[str, Any]:
     grand_mean = statistics.mean(all_values)
     group_means = [statistics.mean(g) for g in clean_groups]
 
-    ss_between = sum(
-        size * (mean - grand_mean) ** 2 for size, mean in zip(group_sizes, group_means, strict=True)
-    )
-    ss_within = sum(
-        (x - mean) ** 2 for g, mean in zip(clean_groups, group_means, strict=True) for x in g
-    )
+    ss_between = sum(size * (mean - grand_mean) ** 2 for size, mean in zip(group_sizes, group_means, strict=True))
+    ss_within = sum((x - mean) ** 2 for g, mean in zip(clean_groups, group_means, strict=True) for x in g)
     ss_total = ss_between + ss_within
 
     df_between = k - 1

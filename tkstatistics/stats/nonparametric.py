@@ -3,15 +3,17 @@
 """
 Implementations of nonparametric statistical tests using only stdlib.
 """
+
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import Any, Union
 
 Numeric = Union[int, float]
 
 
-def _clean_numeric(data: list[Numeric | None]) -> list[float]:
+def _clean_numeric(data: Sequence[Numeric | None]) -> list[float]:
     """Drop None, non-numeric, and non-finite values, coercing the rest to float."""
     clean: list[float] = []
     for x in data:
@@ -26,7 +28,7 @@ def _clean_numeric(data: list[Numeric | None]) -> list[float]:
     return clean
 
 
-def _clean_pairs(x: list[Numeric | None], y: list[Numeric | None]) -> tuple[list[float], list[float]]:
+def _clean_pairs(x: Sequence[Numeric | None], y: Sequence[Numeric | None]) -> tuple[list[float], list[float]]:
     """Keep only pairs where both entries are present and finite."""
     clean_x: list[float] = []
     clean_y: list[float] = []

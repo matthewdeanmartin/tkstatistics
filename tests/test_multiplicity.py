@@ -4,10 +4,10 @@ import pytest
 
 from tkstatistics.stats.multiplicity import bonferroni_correction, holm_bonferroni_correction
 
-
 # ---------------------------------------------------------------------------
 # bonferroni_correction
 # ---------------------------------------------------------------------------
+
 
 def test_bonferroni_empty():
     assert bonferroni_correction([]) == []
@@ -48,13 +48,14 @@ def test_bonferroni_formula():
     p_values = [0.01, 0.04, 0.20, 0.50]
     result = bonferroni_correction(p_values)
     m = 4
-    for orig, adj in zip(p_values, result):
+    for orig, adj in zip(p_values, result, strict=True):
         assert adj == pytest.approx(min(orig * m, 1.0))
 
 
 # ---------------------------------------------------------------------------
 # holm_bonferroni_correction
 # ---------------------------------------------------------------------------
+
 
 def test_holm_empty():
     assert holm_bonferroni_correction([]) == []
@@ -98,7 +99,7 @@ def test_holm_leq_bonferroni():
     p_values = [0.01, 0.04, 0.10, 0.25, 0.50]
     holm = holm_bonferroni_correction(p_values)
     bonf = bonferroni_correction(p_values)
-    for h, b in zip(holm, bonf):
+    for h, b in zip(holm, bonf, strict=True):
         assert h <= b + 1e-12
 
 
@@ -126,5 +127,5 @@ def test_holm_matches_statsmodels():
     p_values = [0.01, 0.04, 0.20, 0.50, 0.03, 0.08]
     our_result = holm_bonferroni_correction(p_values)
     _, sm_adjusted, _, _ = sm_multipletests(p_values, method="holm")
-    for ours, theirs in zip(our_result, sm_adjusted):
+    for ours, theirs in zip(our_result, sm_adjusted, strict=True):
         assert ours == pytest.approx(theirs, abs=1e-10)

@@ -3,6 +3,7 @@
 """
 A read-only data grid widget for displaying tabular data using ttk.Treeview.
 """
+
 from __future__ import annotations
 
 import tkinter as tk

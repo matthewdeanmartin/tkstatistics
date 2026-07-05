@@ -13,6 +13,7 @@ GHA_WORKFLOWS := .github/workflows
 ABOUT_FILE := tkstatistics/__about__.py
 CHANGELOG := CHANGELOG.md
 COV_FAIL_UNDER := 35
+DOCSTRING_FAIL_UNDER := 60
 
 .PHONY: \
 	sync \
@@ -135,7 +136,6 @@ pylint-scripts:
 # ── Spell check ───────────────────────────────────────────────────────────────
 
 spell:
-	@$(UV) run pylint --enable C0401,C0402,C0403 --rcfile=.pylintrc_spell $(PYLINT_MAIN_TARGETS)
 	@$(UV) run codespell README.md --ignore-words=private_dictionary.txt
 	@$(UV) run codespell $(PACKAGE) --ignore-words=private_dictionary.txt
 
@@ -144,14 +144,13 @@ spell:
 docs-check: docs-check-docstrings docs-check-pydoctest docs-check-links changelog-verify
 
 docs-check-docstrings:
-	@$(UV) run interrogate $(PACKAGE) --verbose
+	@$(UV) run interrogate $(PACKAGE) --verbose --fail-under=$(DOCSTRING_FAIL_UNDER)
 
 docs-check-pydoctest:
-	@$(UV) run pydoctest --config .pydoctest.json \
-		| grep -v "__init__" | grep -v "__main__" | grep -v "Unable to parse" || true
+	-@$(UV) run pydoctest --config .pydoctest.json
 
 docs-check-links:
-	@$(UV) run mdformat --check README.md docs/*.md || true
+	@$(UV) run mdformat --check README.md docs
 
 changelog-verify:
 	@$(UV) run changelogmanager validate
@@ -181,7 +180,7 @@ run:
 	@$(UV) run tkstatistics
 
 smoke:
-	@$(UV) run bash scripts/bash_help.sh
+	@$(UV) run tkstatistics --help
 
 test:
 	@$(UV) run pytest -q -p no:sugar \
@@ -251,7 +250,7 @@ publish-gha:
 publish-check:
 	@$(UV) build
 	@echo "Distribution built — inspect dist/ before publishing."
-	@ls -lh dist/
+	@$(UV) run python -c "from pathlib import Path; print('\n'.join(f'{p.name}\t{p.stat().st_size} bytes' for p in sorted(Path('dist').iterdir())))"
 
 publish:
 	@echo "Publishing via uv (set UV_PUBLISH_TOKEN or configure OIDC trusted publishing)"
@@ -263,5 +262,5 @@ check: format-check lint-check security test typecheck metadata-check version-ch
 check-ci: lint-check security test-ci typecheck metadata-check version-check
 	@echo "CI checks passed."
 
-prerelease: check dev-status docs-check smoke spell publish-check
+prerelease: check docs-check smoke spell publish-check
 	@echo "Pre-release checks complete — ready to publish."

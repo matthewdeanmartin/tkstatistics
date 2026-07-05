@@ -2,6 +2,7 @@
 """
 A widget to display the contents of a project (datasets, analyses).
 """
+
 from __future__ import annotations
 
 import tkinter as tk

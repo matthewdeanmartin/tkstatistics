@@ -10,7 +10,8 @@ saving charts from headless runs.
 
 from __future__ import annotations
 
-from xml.sax.saxutils import escape
+# This escapes generated output and never parses untrusted XML.
+from xml.sax.saxutils import escape  # nosec B406
 
 from .scene import Scene
 

@@ -21,7 +21,7 @@ def holm_bonferroni_correction(p_values: list[float], alpha: float = 0.05) -> li
     indexed = sorted(enumerate(p_values), key=lambda x: x[1])
     adjusted_sorted = [0.0] * m
     running_max = 0.0
-    for rank_zero, (orig_idx, p) in enumerate(indexed):
+    for rank_zero, (_orig_idx, p) in enumerate(indexed):
         factor = m - rank_zero  # = m - rank + 1 (1-indexed)
         running_max = max(running_max, factor * p)
         adjusted_sorted[rank_zero] = min(running_max, 1.0)

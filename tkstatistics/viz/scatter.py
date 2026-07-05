@@ -10,6 +10,7 @@ chart and the regression analysis agree by construction.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from ..stats.regression import stdlib_simple_regression
@@ -29,7 +30,7 @@ class ScatterSpec:
     fit_line: bool = False
 
 
-def _clean_pairs(x: list[float | int | None], y: list[float | int | None]) -> tuple[list[float], list[float]]:
+def _clean_pairs(x: Sequence[float | int | None], y: Sequence[float | int | None]) -> tuple[list[float], list[float]]:
     cx: list[float] = []
     cy: list[float] = []
     for xi, yi in zip(x, y, strict=False):
@@ -60,9 +61,7 @@ def build_scatter(spec: ScatterSpec, width: float = 560.0, height: float = 420.0
     y_lo, y_hi = min(y), max(y)
     x_pad = (x_hi - x_lo) * 0.05 or 1.0
     y_pad = (y_hi - y_lo) * 0.05 or 1.0
-    area = make_plot_area(
-        scene, x_lo - x_pad, x_hi + x_pad, y_lo - y_pad, y_hi + y_pad, has_title=bool(spec.title)
-    )
+    area = make_plot_area(scene, x_lo - x_pad, x_hi + x_pad, y_lo - y_pad, y_hi + y_pad, has_title=bool(spec.title))
 
     draw_axes(scene, area)
     draw_x_ticks(scene, area, nice_ticks(x_lo, x_hi, 5))

@@ -3,6 +3,7 @@
 """
 Tkinter dialog windows for statistical analyses.
 """
+
 from __future__ import annotations
 
 import tkinter as tk
@@ -12,7 +13,7 @@ from tkinter import messagebox, ttk
 class AnalysisDialog(tk.Toplevel):
     """A base class for analysis dialog windows."""
 
-    def __init__(self, master: tk.Misc, title: str, variables: list[str]):
+    def __init__(self, master: tk.Tk | tk.Toplevel, title: str, variables: list[str]):
         super().__init__(master)
         self.title(title)
         self.transient(master)  # Keep dialog on top of the main window
@@ -155,7 +156,9 @@ class OneSampleTTestDialog(AnalysisDialog):
 
     def create_body(self, master: ttk.Frame):
         var_frame = ttk.Labelframe(master, text="Test Variable")
-        ttk.Combobox(var_frame, textvariable=self.variable, values=self.variables, state="readonly").pack(padx=5, pady=5)
+        ttk.Combobox(var_frame, textvariable=self.variable, values=self.variables, state="readonly").pack(
+            padx=5, pady=5
+        )
         var_frame.pack(fill="x", expand=True, pady=5)
 
         mean_frame = ttk.Labelframe(master, text="Null hypothesis mean (μ₀)")
@@ -164,8 +167,10 @@ class OneSampleTTestDialog(AnalysisDialog):
 
         alt_frame = ttk.Labelframe(master, text="Alternative")
         ttk.Combobox(
-            alt_frame, textvariable=self.alternative,
-            values=["two-sided", "less", "greater"], state="readonly",
+            alt_frame,
+            textvariable=self.alternative,
+            values=["two-sided", "less", "greater"],
+            state="readonly",
         ).pack(padx=5, pady=5)
         alt_frame.pack(fill="x", expand=True, pady=5)
 
@@ -210,16 +215,20 @@ class TwoSampleDialog(AnalysisDialog):
 
         alt_frame = ttk.Labelframe(master, text="Alternative")
         ttk.Combobox(
-            alt_frame, textvariable=self.alternative,
-            values=["two-sided", "less", "greater"], state="readonly",
+            alt_frame,
+            textvariable=self.alternative,
+            values=["two-sided", "less", "greater"],
+            state="readonly",
         ).pack(padx=5, pady=5)
         alt_frame.pack(fill="x", expand=True, pady=5)
 
         if self._show_variance:
             var_frame = ttk.Labelframe(master, text="Variance assumption")
             ttk.Combobox(
-                var_frame, textvariable=self.variance,
-                values=["welch", "pooled"], state="readonly",
+                var_frame,
+                textvariable=self.variance,
+                values=["welch", "pooled"],
+                state="readonly",
             ).pack(padx=5, pady=5)
             var_frame.pack(fill="x", expand=True, pady=5)
 
@@ -364,8 +373,10 @@ class MultiVariableDialog(AnalysisDialog):
         if self._methods:
             method_frame = ttk.Labelframe(master, text="Method")
             ttk.Combobox(
-                method_frame, textvariable=self.method,
-                values=self._methods, state="readonly",
+                method_frame,
+                textvariable=self.method,
+                values=self._methods,
+                state="readonly",
             ).pack(padx=5, pady=5)
             method_frame.pack(fill="x", expand=True, pady=5)
 
@@ -426,8 +437,10 @@ class DeclareHypothesisDialog(AnalysisDialog):
 
         test_frame = ttk.Labelframe(master, text="Confirmatory test")
         test_combo = ttk.Combobox(
-            test_frame, textvariable=self.test_label,
-            values=list(_INFERENTIAL_TESTS), state="readonly",
+            test_frame,
+            textvariable=self.test_label,
+            values=list(_INFERENTIAL_TESTS),
+            state="readonly",
         )
         test_combo.pack(padx=5, pady=5)
         test_combo.bind("<<ComboboxSelected>>", lambda _e: self._sync_input_visibility())
@@ -435,9 +448,13 @@ class DeclareHypothesisDialog(AnalysisDialog):
 
         self.var_frame = ttk.Labelframe(master, text="Variables")
         ttk.Label(self.var_frame, text="X / data:").grid(row=0, column=0, sticky="e", padx=3, pady=3)
-        ttk.Combobox(self.var_frame, textvariable=self.x_var, values=self.variables, state="readonly", width=18).grid(row=0, column=1, padx=3, pady=3)
+        ttk.Combobox(self.var_frame, textvariable=self.x_var, values=self.variables, state="readonly", width=18).grid(
+            row=0, column=1, padx=3, pady=3
+        )
         ttk.Label(self.var_frame, text="Y (two-sample):").grid(row=1, column=0, sticky="e", padx=3, pady=3)
-        ttk.Combobox(self.var_frame, textvariable=self.y_var, values=self.variables, state="readonly", width=18).grid(row=1, column=1, padx=3, pady=3)
+        ttk.Combobox(self.var_frame, textvariable=self.y_var, values=self.variables, state="readonly", width=18).grid(
+            row=1, column=1, padx=3, pady=3
+        )
         self.var_frame.pack(fill="x", expand=True, pady=4)
 
         self.groups_frame = ttk.Labelframe(master, text="Groups (two or more columns to compare)")
@@ -458,9 +475,17 @@ class DeclareHypothesisDialog(AnalysisDialog):
         ttk.Label(opt_frame, text="Null mean (μ₀):").grid(row=0, column=0, sticky="e", padx=3, pady=3)
         ttk.Entry(opt_frame, textvariable=self.null_mean, width=10).grid(row=0, column=1, padx=3, pady=3)
         ttk.Label(opt_frame, text="Alternative:").grid(row=1, column=0, sticky="e", padx=3, pady=3)
-        ttk.Combobox(opt_frame, textvariable=self.alternative, values=["two-sided", "less", "greater"], state="readonly", width=10).grid(row=1, column=1, padx=3, pady=3)
+        ttk.Combobox(
+            opt_frame,
+            textvariable=self.alternative,
+            values=["two-sided", "less", "greater"],
+            state="readonly",
+            width=10,
+        ).grid(row=1, column=1, padx=3, pady=3)
         ttk.Label(opt_frame, text="Variance:").grid(row=2, column=0, sticky="e", padx=3, pady=3)
-        ttk.Combobox(opt_frame, textvariable=self.variance, values=["welch", "pooled"], state="readonly", width=10).grid(row=2, column=1, padx=3, pady=3)
+        ttk.Combobox(
+            opt_frame, textvariable=self.variance, values=["welch", "pooled"], state="readonly", width=10
+        ).grid(row=2, column=1, padx=3, pady=3)
         ttk.Label(opt_frame, text="Alpha (α):").grid(row=3, column=0, sticky="e", padx=3, pady=3)
         ttk.Entry(opt_frame, textvariable=self.alpha, width=10).grid(row=3, column=1, padx=3, pady=3)
         opt_frame.pack(fill="x", expand=True, pady=4)

@@ -9,14 +9,13 @@ from __future__ import annotations
 import hashlib
 import json
 import random
-from datetime import datetime, UTC
+import secrets
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from tkstatistics.__about__ import __version__
-
-# Import all stats functions to register them
 from tkstatistics.stats import correlation, descriptives, nonparametric, parametric, regression
 from tkstatistics.stats.multiplicity import holm_bonferroni_correction
 
@@ -26,6 +25,7 @@ from .project import Project
 
 class ConfirmatoryGateError(Exception):
     """Raised when a confirmatory run is refused for lack of a valid plan."""
+
 
 # This dispatcher map is crucial for the headless runner.
 # It connects the string name in the JSON spec to the actual Python function.
@@ -77,6 +77,7 @@ def extract_p_value(result: dict[str, Any]) -> float | None:
             return float(value)
     return None
 
+
 _ANALYSIS_INPUT_RULES: dict[str, dict[str, str]] = {
     "describe": {"data": "column"},
     "frequency_table": {"data": "column_or_literal"},
@@ -125,6 +126,9 @@ def create_spec(
         inputs: A dictionary mapping input roles to variable names (e.g., {'x': 'height'}).
         options: A dictionary of options passed to the analysis function.
         app_version: The version of tkstatistics that created the spec.
+        mode: Whether the analysis is exploratory or confirmatory.
+        plan_id: Identifier of the committed plan for a confirmatory analysis.
+        seed: Optional reproducibility seed; generated when omitted.
 
     Returns:
         A dictionary representing the analysis spec.
@@ -141,7 +145,7 @@ def create_spec(
         "dataset": dataset_name,
         "inputs": inputs,
         "options": options,
-        "seed": seed if seed is not None else random.randint(0, 2**32 - 1),
+        "seed": seed if seed is not None else secrets.randbits(32),
         "mode": mode,
         "plan_id": plan_id,
         "app_version": app_version,
@@ -229,7 +233,7 @@ def validate_spec(spec: dict[str, Any], project: Project) -> dict[str, Any]:
     if "plan_id" not in normalized:
         normalized["plan_id"] = None
     if "seed" not in normalized:
-        normalized["seed"] = random.randint(0, 2**32 - 1)
+        normalized["seed"] = secrets.randbits(32)
 
     required_fields = {"analysis", "dataset", "inputs", "options", "seed", "mode", "spec_version", "app_version"}
     missing = [field for field in required_fields if field not in normalized]
@@ -237,7 +241,9 @@ def validate_spec(spec: dict[str, Any], project: Project) -> dict[str, Any]:
         raise ValueError(f"Spec missing required fields: {', '.join(sorted(missing))}")
 
     if normalized["spec_version"] != SUPPORTED_SPEC_VERSION:
-        raise ValueError(f"Unsupported spec_version '{normalized['spec_version']}'. Only version {SUPPORTED_SPEC_VERSION} is currently supported.")
+        raise ValueError(
+            f"Unsupported spec_version '{normalized['spec_version']}'. Only version {SUPPORTED_SPEC_VERSION} is currently supported."
+        )
 
     analysis_name = normalized.get("analysis")
     if not isinstance(analysis_name, str) or analysis_name not in ANALYSIS_DISPATCHER:
@@ -284,7 +290,11 @@ def validate_spec(spec: dict[str, Any], project: Project) -> dict[str, Any]:
     if analysis_name == "ols" and "add_intercept" in options and not isinstance(options["add_intercept"], bool):
         raise ValueError("Option 'add_intercept' must be a boolean.")
 
-    if analysis_name == "correlation_matrix" and "method" in options and options["method"] not in {"pearson", "spearman"}:
+    if (
+        analysis_name == "correlation_matrix"
+        and "method" in options
+        and options["method"] not in {"pearson", "spearman"}
+    ):
         raise ValueError("Option 'method' must be one of: pearson, spearman.")
 
     if analysis_name == "ttest_1samp":
@@ -318,7 +328,11 @@ def _prepare_analysis_kwargs(spec: dict[str, Any], dataset: Any) -> dict[str, An
     for role, var_name_or_value in spec.get("inputs", {}).items():
         if isinstance(var_name_or_value, str) and var_name_or_value in dataset.column_names:
             kwargs[role] = dataset.get_column(var_name_or_value)
-        elif isinstance(var_name_or_value, list) and var_name_or_value and all(isinstance(v, str) and v in dataset.column_names for v in var_name_or_value):
+        elif (
+            isinstance(var_name_or_value, list)
+            and var_name_or_value
+            and all(isinstance(v, str) and v in dataset.column_names for v in var_name_or_value)
+        ):
             kwargs[role] = [dataset.get_column(v) for v in var_name_or_value]
         else:
             kwargs[role] = var_name_or_value
@@ -338,7 +352,9 @@ def _prepare_analysis_kwargs(spec: dict[str, Any], dataset: Any) -> dict[str, An
     return kwargs
 
 
-def _check_confirmatory_gate(normalized_spec: dict[str, Any], project: Project) -> tuple[dict[str, Any] | None, list[str]]:
+def _check_confirmatory_gate(
+    normalized_spec: dict[str, Any], project: Project
+) -> tuple[dict[str, Any] | None, list[str]]:
     """Enforce the pre-registration gate for confirmatory runs.
 
     Returns ``(plan, deviations)``. Raises ``ConfirmatoryGateError`` if the run
@@ -392,9 +408,7 @@ def run_spec_payload(spec: dict[str, Any], project: Project) -> dict[str, Any]:
         # Raises ConfirmatoryGateError → caller (run_spec/CLI) reports refusal.
         plan, deviations = _check_confirmatory_gate(normalized_spec, project)
         if deviations:
-            warnings.append(
-                "Confirmatory run DEVIATES from its pre-registered plan: " + "; ".join(deviations)
-            )
+            warnings.append("Confirmatory run DEVIATES from its pre-registered plan: " + "; ".join(deviations))
 
     random_state = random.getstate()
     try:
@@ -525,9 +539,7 @@ def audit_dataset(project: Project, dataset_name: str) -> dict[str, Any]:
 
     inferential_runs = [r for r in executed if r["p_value"] is not None]
     confirmatory_runs = [r for r in executed if r["mode"] == "confirmatory"]
-    exploratory_inferential = [
-        r for r in inferential_runs if r["mode"] != "confirmatory"
-    ]
+    exploratory_inferential = [r for r in inferential_runs if r["mode"] != "confirmatory"]
     used_plan_ids = {r["plan_id"] for r in confirmatory_runs if r["plan_id"]}
     unused_plans = sorted(declared_plan_ids - used_plan_ids)
 

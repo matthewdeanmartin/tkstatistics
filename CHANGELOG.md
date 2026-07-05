@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 ### Added
+
+- Initial release of `tkstatistics`, a statistics application using only the Python Standard Library.
 - `stats/distributions.py`: shared stdlib-only special functions and CDFs/PPFs
   (Student-t, normal, chi-square, F, regularized incomplete beta), equivalence-tested
   against scipy.
@@ -52,13 +55,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tolerates missing values.
 - `Makefile` (`make install` → `uv sync --all-extras --all-groups`, plus `test`,
   `lint`, `run`); `statsmodels` added to the dev group as a test oracle.
-
-### Changed
-- `describe()` no longer errors on single-value samples (quantiles guarded for n<2).
-- Nonparametric tests now drop missing/non-finite values (and incomplete pairs for
-  Wilcoxon) before computing.
-- Multiplicity pooling now includes nonparametric/exact p-values, not just `p_value`.
-
-## [0.1.0] - 2026-06-20
-### Added
-- Initial release of `tkstatistics`, a statistics application using only the Python Standard Library.
