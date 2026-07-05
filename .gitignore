@@ -209,3 +209,6 @@ __marimo__/
 /sample.statproj
 /SOURCE.md
 /examples/mean_hypothesis_demo/demo.statproj
+
+# local demo artifact
+demo.statproj
