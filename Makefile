@@ -153,7 +153,7 @@ docs-check-links:
 	@$(UV) run mdformat --check README.md docs
 
 changelog-verify:
-	@$(UV) run changelogmanager validate
+	@$(UV) run kaclm validate
 
 # ── Dead code analysis (advisory — non-blocking) ─────────────────────────────
 
