@@ -82,3 +82,7 @@ make publish-check
 
 The package is MIT licensed. See the
 [release history](https://github.com/matthewdeanmartin/tkstatistics/blob/main/CHANGELOG.md).
+
+## Python 3.15 wheels-only verification — 2026-10-04
+
+Windows Python 3.15.0rc3 passes the dependency-free baseline: 73 tests and nine optional-library skips. With wheel-installed NumPy, SciPy, statsmodels and pandas 3.1.0rc0, all 110 tests pass; Python 3.14 with stable science wheels also passes 110. This verifies existing stdlib paths and optional science backends, not a newly added fallback. Broad developer tooling still hits source-only linkcheckmd. Existing unrelated .python-version/.pylintrc edits were preserved.
