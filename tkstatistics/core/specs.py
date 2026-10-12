@@ -364,22 +364,19 @@ def _check_confirmatory_gate(
 
     if analysis_name not in INFERENTIAL_ANALYSES:
         raise ConfirmatoryGateError(
-            f"Analysis '{analysis_name}' produces no p-value and cannot be run in confirmatory mode. "
-            "Use exploratory mode for descriptive/model-fitting analyses."
+            f"Analysis '{analysis_name}' produces no p-value and cannot be run in confirmatory mode. Use exploratory mode for descriptive/model-fitting analyses."
         )
 
     plan_id = normalized_spec.get("plan_id")
     if not plan_id:
         raise ConfirmatoryGateError(
-            "Confirmatory mode requires a pre-registered plan. Declare a hypothesis and commit a plan "
-            "before running the test (set 'plan_id' on the spec)."
+            "Confirmatory mode requires a pre-registered plan. Declare a hypothesis and commit a plan before running the test (set 'plan_id' on the spec)."
         )
 
     plan = project.get_plan(plan_id)
     if plan is None:
         raise ConfirmatoryGateError(
-            f"No committed pre-registration plan found for plan_id '{plan_id}'. "
-            "A confirmatory p-value cannot be revealed without a prior committed plan."
+            f"No committed pre-registration plan found for plan_id '{plan_id}'. A confirmatory p-value cannot be revealed without a prior committed plan."
         )
 
     deviations = plans_mod.spec_matches_plan(normalized_spec, plan)
@@ -546,13 +543,11 @@ def audit_dataset(project: Project, dataset_name: str) -> dict[str, Any]:
     warnings: list[str] = []
     if exploratory_inferential:
         warnings.append(
-            f"{len(exploratory_inferential)} inferential test(s) were run in exploratory mode "
-            "without pre-registration. Their p-values are not confirmatory."
+            f"{len(exploratory_inferential)} inferential test(s) were run in exploratory mode without pre-registration. Their p-values are not confirmatory."
         )
     if len(inferential_runs) > len(declared_plan_ids):
         warnings.append(
-            f"{len(inferential_runs)} inferential tests executed but only {len(declared_plan_ids)} "
-            "hypotheses were pre-registered — possible undisclosed testing / p-hacking risk."
+            f"{len(inferential_runs)} inferential tests executed but only {len(declared_plan_ids)} hypotheses were pre-registered — possible undisclosed testing / p-hacking risk."
         )
 
     return {

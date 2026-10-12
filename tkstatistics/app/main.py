@@ -420,7 +420,7 @@ class App(tk.Tk):
         self.project_explorer.populate(self.project)
         messagebox.showinfo(
             "Hypothesis Pre-registered",
-            f"Plan committed (id {plan_id}).\n\nThe result is sealed. Use " "'Run Confirmatory Test...' to reveal it.",
+            f"Plan committed (id {plan_id}).\n\nThe result is sealed. Use 'Run Confirmatory Test...' to reveal it.",
             parent=self,
         )
 
@@ -711,8 +711,7 @@ class App(tk.Tk):
         labels = ["(Intercept)", *pred_vars]
         for i, var_name in enumerate(labels):
             lines.append(
-                f"{var_name:<15} {cell(results['coefficients'][i])} {cell(results['std_errors'][i])} "
-                f"{cell(results['t_statistics'][i], '>12.3f')} {cell(p_values[i])}"
+                f"{var_name:<15} {cell(results['coefficients'][i])} {cell(results['std_errors'][i])} {cell(results['t_statistics'][i], '>12.3f')} {cell(p_values[i])}"
             )
         lines.append(f"\n{results['notes']}")
         return "\n".join(lines)
